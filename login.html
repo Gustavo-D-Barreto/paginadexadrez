@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>♟ Xadrez - Login</title>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <style></style>
+</head>
+
+<body class="login-page">
+    <div class="container">
+        <div class="login-card">
+            <div class="corner-decor top-left"></div>
+            <div class="corner-decor top-right"></div>
+            <div class="corner-decor bottom-left"></div>
+            <div class="corner-decor bottom-right"></div>
+
+            <div class="logo-section">
+                <div class="chess-icon">♟</div>
+                <h1 class="title">Xadrez</h1>
+                <p class="subtitle">Reino das Sombras</p>
+            </div>
+
+            <div class="tabs">
+                <button class="tab-btn active" onclick="switchTab('login')">Login</button>
+                <button class="tab-btn" onclick="switchTab('register')">Registro</button>
+            </div>
+
+            <!-- Login -->
+            <div id="panel-login" class="form-panel active">
+                <div class="field">
+                    <label>E-mail</label>
+                    <input id="login-email" type="email" placeholder="seu@email.com" />
+                </div>
+                <div class="field">
+                    <label>Senha</label>
+                    <input id="login-password" type="password" placeholder="••••••••" />
+                </div>
+                <button class="btn btn-primary" id="btn-login" onclick="handleLogin()">Entrar</button>
+                <div class="msg" id="msg-login"></div>
+            </div>
+
+            <!-- Registro -->
+            <div id="panel-register" class="form-panel">
+                <div class="field">
+                    <label>Nome</label>
+                    <input id="reg-name" type="text" placeholder="Seu nome de cavaleiro" />
+                </div>
+                <div class="field">
+                    <label>E-mail</label>
+                    <input id="reg-email" type="email" placeholder="seu@email.com" />
+                </div>
+                <div class="field">
+                    <label>Senha</label>
+                    <input id="reg-password" type="password" placeholder="Mínimo 6 caracteres" />
+                </div>
+                <button class="btn btn-primary" id="btn-register" onclick="handleRegister()">Criar Conta</button>
+                <div class="msg" id="msg-register"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://azpycumnnocmzuglkrma.supabase.co';
+        const SUPABASE_ANON = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6cHljdW1ubm9jbXp1Z2xrcm1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyMjYxMTUsImV4cCI6MjA4NjgwMjExNX0.wMuv40j43LAdb7oE1A6j2jsMy6EMPG5ZSgI8lVN7Gvg';
+
+        const { createClient } = supabase;
+        const db = createClient(SUPABASE_URL, SUPABASE_ANON);
+
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach((b, i) =>
+                b.classList.toggle('active',
+                    (i === 0 && tab === 'login') || (i === 1 && tab === 'register')
+                )
+            );
+            document.getElementById('panel-login').classList.toggle('active', tab === 'login');
+            document.getElementById('panel-register').classList.toggle('active', tab === 'register');
+        }
+
+        function setMsg(id, text, type) {
+            const el = document.getElementById(id);
+            el.textContent = text;
+            el.className = 'msg ' + type;
+        }
+
+        function setLoading(btnId, loading, defaultText) {
+            const btn = document.getElementById(btnId);
+            btn.disabled = loading;
+            btn.innerHTML = loading
+                ? '<span class="spinner"></span> Aguarde...'
+                : defaultText;
+        }
+
+        async function handleLogin() {
+            const email = document.getElementById('login-email').value.trim();
+            const password = document.getElementById('login-password').value;
+            if (!email || !password) { setMsg('msg-login', 'Preencha todos os campos.', 'error'); return; }
+
+            setLoading('btn-login', true, 'Entrar');
+            document.getElementById('msg-login').className = 'msg';
+
+            const { data, error } = await db.auth.signInWithPassword({ email, password });
+            setLoading('btn-login', false, 'Entrar');
+
+            if (error) { setMsg('msg-login', 'Usuário ou senha incorretos.', 'error'); return; }
+
+            setMsg('msg-login', 'Login realizado! Redirecionando...', 'success');
+            setTimeout(() => window.location.href = 'dashboard.html', 1000);
+        }
+
+        async function handleRegister() {
+            const name = document.getElementById('reg-name').value.trim();
+            const email = document.getElementById('reg-email').value.trim();
+            const password = document.getElementById('reg-password').value;
+
+            if (!name || !email || !password) { setMsg('msg-register', 'Preencha todos os campos.', 'error'); return; }
+            if (password.length < 6) { setMsg('msg-register', 'Senha precisa ter no mínimo 6 caracteres.', 'error'); return; }
+
+            setLoading('btn-register', true, 'Criar conta');
+            document.getElementById('msg-register').className = 'msg';
+
+            const { data, error } = await db.auth.signUp({
+                email,
+                password,
+                options: { data: { full_name: name } }
+            });
+
+            setLoading('btn-register', false, 'Criar conta');
+
+            if (error) { setMsg('msg-register', error.message, 'error'); return; }
+
+            if (data.session) {
+                setMsg('msg-register', 'Conta criada! Redirecionando...', 'success');
+                setTimeout(() => window.location.href = 'dashboard.html', 1000);
+            } else {
+                setMsg('msg-register', 'Conta criada! Confirme seu e-mail para continuar.', 'success');
+            }
+        }
+
+        // Redireciona se já estiver logado
+        (async () => {
+            const { data } = await db.auth.getSession();
+            if (data.session) window.location.href = 'dashboard.html';
+        })();
+    </script>
+</body>
+
+</html>

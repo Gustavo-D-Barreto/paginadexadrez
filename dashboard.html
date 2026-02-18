@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>♟ Xadrez - Jogo</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=MedievalSharp&display=swap"
+        rel="stylesheet">
+
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles_poderes.css">
+    <link rel="stylesheet" href="layout_redesign.css">
+</head>
+
+<body>
+
+    <!-- ── TOP BAR ───────────────────────────────────────────────── -->
+    <div class="topbar">
+        <div class="logo">♟ XADREZ</div>
+        <div class="topbar-right">
+            <span>Bem-vindo,</span>
+            <span id="user-name">...</span>
+            <button class="btn-logout" onclick="logout()">Sair</button>
+        </div>
+    </div>
+
+    <!-- ── TELA DE AGUARDANDO ────────────────────────────────────── -->
+    <div class="waiting-screen" id="waiting-screen">
+        <div class="waiting-card">
+            <h2 class="waiting-title">Aguardando Oponente</h2>
+            <div class="code-display">
+                <div class="code-label">Código da Sala</div>
+                <div class="code-value" id="room-code">------</div>
+            </div>
+            <p class="waiting-message">
+                Compartilhe este código com seu amigo para que ele possa entrar na partida
+                <span class="loading-dots"><span>.</span><span>.</span><span>.</span></span>
+            </p>
+            <button class="btn-cancel-wait" onclick="cancelarEspera()">Cancelar</button>
+        </div>
+    </div>
+
+    <!-- ── INDICADOR DE COR ──────────────────────────────────────── -->
+    <div class="player-indicator" id="player-indicator"></div>
+
+    <!-- ── MENSAGEM TEMPORÁRIA ───────────────────────────────────── -->
+    <div class="temp-message" id="temp-message"></div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         MENU INICIAL
+    ══════════════════════════════════════════════════════════════════ -->
+    <div class="menu-inicial" id="menu-inicial">
+        <div class="menu-card">
+            <h1 class="menu-title">♟ Xadrez das Sombras ♟</h1>
+            <p class="menu-subtitle"></p>
+            <div class="menu-buttons">
+                <button class="btn-menu primary" onclick="criarPartida()">Criar Nova Partida</button>
+                <button class="btn-menu" onclick="entrarPartida()">Entrar em Partida</button>
+                <button class="btn-menu" onclick="jogarLocal()">Jogar Localmente</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════════════════════════
+         LAYOUT DO JOGO
+    ══════════════════════════════════════════════════════════════════ -->
+    <div class="game-layout" id="game-layout">
+
+        <!-- ╔══════════════════════════════╗
+             ║  COLUNA ESQUERDA             ║
+             ╚══════════════════════════════╝ -->
+        <div class="side-panel side-left">
+
+            <!-- PAINEL COMBINADO DOS JOGADORES -->
+            <div class="parchment-panel players-combined">
+
+                <!-- ── Jogador Pretas (topo) ── -->
+                <div class="player-card player-black" id="player-card-black">
+                    <div class="player-card-header">
+                        <div class="turn-dot" id="dot-black"></div>
+                        <span class="player-card-sym">♚</span>
+                        <span class="player-card-label">Pretas</span>
+                        <span class="player-pts-inline" id="pts-black-inline">0 <span>pts</span></span>
+                    </div>
+                    <div class="captured-pieces" id="captured-black"></div>
+                </div>
+
+                <!-- ── Divisória com Status ── -->
+                <div class="players-status-divider">
+                    <div class="status-dot-divider"></div>
+                    <div class="status-display status-inline" id="status-display">Vez das Brancas</div>
+                    <div class="status-dot-divider"></div>
+                </div>
+
+                <!-- ── Jogador Brancas (base) ── -->
+                <div class="player-card player-white" id="player-card-white">
+                    <div class="player-card-header">
+                        <div class="turn-dot" id="dot-white"></div>
+                        <span class="player-card-sym">♔</span>
+                        <span class="player-card-label">Brancas</span>
+                        <span class="player-pts-inline" id="pts-white-inline">0 <span>pts</span></span>
+                    </div>
+                    <div class="captured-pieces" id="captured-white"></div>
+                </div>
+
+            </div>
+
+            <!-- HISTÓRICO -->
+            <div class="parchment-panel history-panel">
+                <div class="parchment-title">Histórico</div>
+                <div class="history-scroll" id="history"></div>
+            </div>
+
+            <!-- REFERÊNCIA DE VALORES -->
+            <div class="parchment-panel piece-ref-panel">
+                <div class="parchment-title">Valor das Peças</div>
+                <div class="piece-ref-list">
+                    <div class="piece-ref-row">
+                        <span class="ref-icon">♛</span>
+                        <span class="ref-name">Rainha</span>
+                        <span class="ref-value">8 pts</span>
+                    </div>
+                    <div class="piece-ref-row">
+                        <span class="ref-icon">♜</span>
+                        <span class="ref-name">Torre</span>
+                        <span class="ref-value">6 pts</span>
+                    </div>
+                    <div class="piece-ref-row">
+                        <span class="ref-icon">♝</span>
+                        <span class="ref-name">Bispo</span>
+                        <span class="ref-value">6 pts</span>
+                    </div>
+                    <div class="piece-ref-row">
+                        <span class="ref-icon">♞</span>
+                        <span class="ref-name">Cavalo</span>
+                        <span class="ref-value">5 pts</span>
+                    </div>
+                    <div class="piece-ref-row">
+                        <span class="ref-icon">♟</span>
+                        <span class="ref-name">Peão</span>
+                        <span class="ref-value">3 pts</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+        <!-- fim side-left -->
+
+        <!-- ╔══════════════════════════════╗
+             ║  CENTRO — TABULEIRO          ║
+             ╚══════════════════════════════╝ -->
+        <div class="board-container">
+            <div class="board-frame">
+                <div class="board-wrapper">
+                    <div class="rank-labels" id="rank-labels"></div>
+                    <div class="board-grid">
+                        <div id="board"></div>
+                        <div class="file-labels" id="file-labels"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="action-bar">
+                <button class="btn-action" onclick="newGame()">Nova Partida</button>
+                <button class="btn-action danger" onclick="surrender()">Desistir</button>
+                <button class="btn-action" id="btn-menu-voltar" onclick="voltarMenu()" style="display:none;">←
+                    Menu</button>
+            </div>
+        </div>
+        <!-- fim board-container -->
+
+        <!-- ╔══════════════════════════════╗
+             ║  COLUNA DIREITA — LOJA       ║
+             ╚══════════════════════════════╝ -->
+        <div class="side-panel side-right">
+
+            <div class="parchment-panel loja-panel">
+                <div class="parchment-title">Loja de Poderes</div>
+
+                <!-- Pontos disponíveis por jogador -->
+                <div class="loja-pontos-bar">
+                    <div class="loja-pts-item" id="loja-bar-white">
+                        <span class="pts-sym">♔</span>
+                        <span class="pts-val" id="loja-pontos-white">0</span>
+                        <span class="pts-label">pts brancas</span>
+                    </div>
+                    <div class="loja-pts-item" id="loja-bar-black">
+                        <span class="pts-sym">♚</span>
+                        <span class="pts-val" id="loja-pontos-black">0</span>
+                        <span class="pts-label">pts pretas</span>
+                    </div>
+                </div>
+
+                <!-- 4 cards de poderes -->
+                <div id="loja-poderes"></div>
+
+                <!-- Poderes já adquiridos -->
+                <div class="poderes-adquiridos-section">
+                    <div class="poderes-adq-row">
+                        <span class="adq-player-sym">♔</span>
+                        <div class="adq-lista" id="poderes-adquiridos-white">
+                            <span class="sem-poderes">Nenhum poder</span>
+                        </div>
+                    </div>
+                    <div class="poderes-adq-row">
+                        <span class="adq-player-sym">♚</span>
+                        <div class="adq-lista" id="poderes-adquiridos-black">
+                            <span class="sem-poderes">Nenhum poder</span>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+        <!-- fim side-right -->
+
+    </div>
+    <!-- fim game-layout -->
+
+    <!-- ── DIALOG DE PROMOÇÃO ────────────────────────────────────── -->
+    <div class="promotion-overlay" id="promotion-overlay">
+        <div class="promotion-box">
+            <div class="promotion-title">Promover Peão</div>
+            <div class="promotion-choices" id="promotion-choices"></div>
+        </div>
+    </div>
+
+    <!-- ── MODAL: ENTRAR POR CÓDIGO ──────────────────────────────── -->
+    <div class="modal-overlay" id="modal-codigo">
+        <div class="modal-card">
+            <div class="modal-header">
+                <span class="modal-icon">⚔</span>
+                <h2 class="modal-title">Entrar na Sala</h2>
+                <p class="modal-subtitle">Digite o código de 6 letras fornecido pelo seu oponente</p>
+            </div>
+            <div class="modal-body">
+                <label class="modal-label" for="input-codigo">Código da Sala</label>
+                <input id="input-codigo" class="modal-input" type="text" maxlength="8" placeholder="EX: AB3X9Z"
+                    autocomplete="off" spellcheck="false" />
+                <div class="modal-erro" id="modal-codigo-erro"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="modal-btn-cancel" onclick="fecharModalCodigo()">Cancelar</button>
+                <button class="modal-btn-confirm" id="btn-confirmar-codigo" onclick="confirmarCodigoModal()">
+                    Entrar na Sala
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── AVISO DE DESCONEXÃO ───────────────────────────────────── -->
+    <div class="aviso-desconexao" id="aviso-desconexao">
+        <div class="aviso-icon">⚡</div>
+        <div class="aviso-texto">
+            <strong>Oponente desconectado</strong>
+            <span>Aguardando reconexão... A partida será encerrada em 60s se ele não voltar.</span>
+        </div>
+    </div>
+
+    <!-- ── SCRIPTS ────────────────────────────────────────────────── -->
+    <script src="regrasdoxadrez.js"></script>
+    <script src="tabuleiro.js"></script>
+    <script src="ambiente.js"></script>
+    <script src="poderes.js"></script>
+
+    <script>
+        /* ─── Extensões de renderização para o novo layout ─── */
+
+        /**
+         * Atualiza os pts inline nos headers dos player-cards
+         * e aplica a classe ativa/inativa ao card.
+         */
+        function renderPlayerCards() {
+            const jogoAtivo = G.status !== 'checkmate' && G.status !== 'stalemate';
+
+            ['white', 'black'].forEach(cor => {
+                // Pontos brutos (sem gastar) para exibir no header
+                const pts = (G.captured?.[cor] || [])
+                    .reduce((s, p) => s + (PIECE_VAL[p.t] || 0), 0);
+
+                const ptEl = document.getElementById(`pts-${cor}-inline`);
+                if (ptEl) ptEl.innerHTML = `${pts} <span>pts</span>`;
+
+                const card = document.getElementById(`player-card-${cor}`);
+                if (card) card.classList.toggle(
+                    'player-card-active',
+                    G.turn === cor && jogoAtivo
+                );
+            });
+        }
+
+        /* ─── Hooks: injeta renderPlayerCards e renderLoja nos ciclos existentes ─── */
+
+        const _origInitGame = initGame;
+        initGame = function () {
+            _origInitGame();
+            if (typeof inicializarLoja === 'function') inicializarLoja();
+        };
+
+        const _origRenderBoard = renderBoard;
+        renderBoard = function () {
+            _origRenderBoard();
+            renderPlayerCards();
+            if (typeof renderLoja === 'function') renderLoja();
+        };
+
+        /* ─── Inicialização ─── */
+        initGame();
+        renderBoard();
+
+        /* ─── Jogar Localmente ─── */
+        function jogarLocal() {
+            document.getElementById('menu-inicial').style.display = 'none';
+            document.getElementById('game-layout').style.display = 'flex';
+            document.body.classList.add('game-active');
+            document.getElementById('btn-menu-voltar').style.display = 'inline-block';
+            initGame();
+            renderBoard();
+        }
+    </script>
+
+</body>
+
+</html>
