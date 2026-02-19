@@ -15,7 +15,7 @@ const PODERES_LISTA = [
     {
         id: 'buraco',
         nome: 'Buraco',
-        custo: 5,
+        custo: 15,
         icone: '◼',
         cor: '#b06cf0',
         desc: 'Cria um vazio intransponível no tabuleiro'
@@ -23,7 +23,7 @@ const PODERES_LISTA = [
     {
         id: 'duplicar',
         nome: 'Duplicar',
-        custo: 4,
+        custo: 14,
         icone: '✨',
         cor: '#4ade80',
         desc: 'Gera uma cópia espectral de uma peça aliada (exceto Rei e Rainha)'
@@ -31,7 +31,7 @@ const PODERES_LISTA = [
     {
         id: 'cacar',
         nome: 'Caçar',
-        custo: 7,
+        custo: 17,
         icone: '🂡',
         cor: '#dd291c',
         desc: 'voce puxa a peça inimiga mais próxima para uma casa adjacente à sua posição atual,'
@@ -39,7 +39,7 @@ const PODERES_LISTA = [
     {
         id: 'congelar',
         nome: 'Congelar',
-        custo: 8,
+        custo: 18,
         icone: '❋',
         cor: '#1daed3',
         desc: 'o jogador escolhe uma coluna vertical para congelar por 4 rodadas, impedindo movimentos inimigo'
@@ -47,7 +47,7 @@ const PODERES_LISTA = [
     {
         id: 'rebater',
         nome: 'Rebater',
-        custo: 9,
+        custo: 19,
         icone: '𓂀',
         cor: '#1d8b30',
         desc: 'cria um escudo protetor em uma peça aliada, evitando sua morte uma vez'
@@ -55,7 +55,7 @@ const PODERES_LISTA = [
     {
         id: 'bencao',
         nome: 'Benção',
-        custo: 7,
+        custo: 17,
         icone: '☯',
         cor: '#fcfcfc',
         desc: 'Dobra pontos por capturas e rubis por 6 turnos'
