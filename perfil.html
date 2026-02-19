@@ -647,26 +647,34 @@
 
             const userId = session.user.id;
 
-            // Busca perfil
-            const { data: profile, error } = await db
+            // Busca perfil (nome, email, created_at)
+            const { data: profile, error: errProfile } = await db
                 .from('profiles')
                 .select('*')
                 .eq('id', userId)
                 .single();
 
-            if (error || !profile) {
+            // Busca estatísticas em ranking_global (wins/losses/draws/streak)
+            const { data: ranking } = await db
+                .from('ranking_global')
+                .select('*')
+                .eq('id', userId)
+                .single();
+
+            if (errProfile || !profile) {
                 document.getElementById('hero-name').textContent = 'Perfil não encontrado';
                 return;
             }
 
-            // Preenche hero
-            const wins = profile.wins || 0;
-            const losses = profile.losses || 0;
-            const draws = profile.draws || 0;
-            const total = wins + losses + draws;
+            // Estatísticas vêm de ranking_global; fallback 0 se ainda não há registro
+            const wins = ranking?.wins || 0;
+            const losses = ranking?.losses || 0;
+            const draws = ranking?.draws || 0;
+            const total = ranking?.total_games || (wins + losses + draws);
+            const streak = ranking?.win_streak || 0;
             const wr = total > 0 ? Math.round((wins / total) * 100) : 0;
 
-            // Nome: usa username ou email
+            // Nome: usa username do perfil ou prefixo do e-mail
             const nome = profile.username || session.user.email?.split('@')[0] || 'Jogador';
             document.getElementById('avatar').textContent =
                 nome.charAt(0).toUpperCase() === nome.charAt(0) ? nome.charAt(0) : '♟';
@@ -696,10 +704,10 @@
                 }, 100);
             }
 
-            // Sequência atual (se houver)
-            if (profile.win_streak > 1) {
+            // Sequência atual
+            if (streak > 1) {
                 document.getElementById('wr-streak').textContent =
-                    `🔥 Sequência: ${profile.win_streak} vitórias`;
+                    `🔥 Sequência: ${streak} vitórias`;
             }
 
             // Carrega partidas recentes
@@ -714,7 +722,7 @@
                 .from('partidas')
                 .select('*')
                 .or(`jogador_w.eq.${userId},jogador_b.eq.${userId}`)
-                .in('status', ['checkmate', 'stalemate', 'surrender'])
+                .in('status', ['checkmate', 'stalemate', 'surrender', 'abandonada', 'finalizada'])
                 .order('created_at', { ascending: false })
                 .limit(10);
 
@@ -742,19 +750,25 @@
                 const euSouBranco = p.jogador_w === userId;
                 const corSimbolo = euSouBranco ? '♔' : '♚';
 
-                // Determina resultado: winner_id salvo pelo trigger, ou deriva do status/turno
-                let resultado = 'DRAW';
+                // Determina resultado
+                let resultado = 'EMP';
                 if (p.status === 'stalemate') {
                     resultado = 'EMP';
                 } else if (p.winner_id) {
                     resultado = p.winner_id === userId ? 'VIT' : 'DER';
-                } else if (p.status === 'checkmate' || p.status === 'surrender') {
+                } else if (['checkmate', 'surrender', 'abandonada', 'finalizada'].includes(p.status)) {
                     // turno no checkmate é o perdedor (não tem jogada)
                     const perdedor = p.turno;
                     const euPerdedor = (perdedor === 'white' && euSouBranco) ||
                         (perdedor === 'black' && !euSouBranco);
                     resultado = euPerdedor ? 'DER' : 'VIT';
                 }
+
+                const tipoPartida = p.status === 'checkmate' ? 'Xeque-mate'
+                    : p.status === 'stalemate' ? 'Afogamento'
+                        : p.status === 'surrender' ? 'Desistência'
+                            : p.status === 'abandonada' ? 'Abandono'
+                                : 'Finalizada';
 
                 const rowClass = resultado === 'VIT' ? 'win-row' :
                     resultado === 'DER' ? 'loss-row' : 'draw-row';
@@ -768,7 +782,7 @@
             <div class="match-color">${corSimbolo}</div>
             <div class="match-vs">
                 vs <strong>${opNome}</strong>
-                <br><small>${p.status === 'checkmate' ? 'Xeque-mate' : p.status === 'stalemate' ? 'Afogamento' : 'Desistência'}</small>
+                <br><small>${tipoPartida}</small>
             </div>
             <div class="match-date">${relTime(p.created_at)}</div>
         </div>`;

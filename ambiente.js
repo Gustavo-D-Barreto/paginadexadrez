@@ -138,7 +138,7 @@ function surrender() {
     statusEl.textContent = `✦ ${G.turn === 'white' ? 'Brancas Desistiram' : 'Pretas Desistiram'} — ${winner} Vencem! ✦`;
 
     renderIndicators();
-    if (partidaId) salvarEstadoNoSupabase();
+    if (partidaId) salvarEstadoNoSupabase('surrender');
 }
 
 function mostrarMensagem(message, duration = 2000) {
@@ -486,9 +486,17 @@ function atualizarIndicadorCor() {
 async function salvarEstadoNoSupabase(forceStatus = null) {
     if (!partidaId) return;
 
-    const novoStatus = forceStatus || (
-        (G.status === 'checkmate' || G.status === 'stalemate') ? 'finalizada' : 'jogando'
-    );
+    // ── Determina o status correto para gravar na tabela ──────────────────
+    let novoStatus;
+    if (forceStatus) {
+        novoStatus = forceStatus;                 // 'surrender' ou 'abandonada'
+    } else if (G.status === 'checkmate') {
+        novoStatus = 'checkmate';
+    } else if (G.status === 'stalemate') {
+        novoStatus = 'stalemate';
+    } else {
+        novoStatus = 'jogando';
+    }
 
     // Inclui lojaState dentro do estado salvo para sincronizar no multiplayer
     const estadoCompleto = {
@@ -497,11 +505,129 @@ async function salvarEstadoNoSupabase(forceStatus = null) {
     };
 
     try {
-        await db.from('partidas').update({
-            estado: estadoCompleto, turno: G.turn, status: novoStatus
-        }).eq('id', partidaId);
+        // ── Busca jogadores da partida ─────────────────────────────────────
+        const { data: partida } = await db
+            .from('partidas')
+            .select('jogador_w, jogador_b')
+            .eq('id', partidaId)
+            .single();
+
+        // ── Determina vencedor ────────────────────────────────────────────
+        // Em checkmate: G.turn é o lado que perdeu (não consegue mover)
+        // Em surrender: forceStatus='surrender', G.turn é quem desistiu
+        let winnerId = null;
+        let loserId = null;
+        let isDraw = false;
+
+        if ((novoStatus === 'checkmate' || novoStatus === 'surrender') && partida) {
+            if (G.turn === 'white') {
+                winnerId = partida.jogador_b;
+                loserId = partida.jogador_w;
+            } else {
+                winnerId = partida.jogador_w;
+                loserId = partida.jogador_b;
+            }
+        } else if (novoStatus === 'stalemate') {
+            isDraw = true;
+        } else if (novoStatus === 'abandonada') {
+            // Quem ainda está online vence — determinado pela presença
+            const { data: { user } } = await db.auth.getUser();
+            if (partida) {
+                winnerId = user.id;
+                loserId = user.id === partida.jogador_w ? partida.jogador_b : partida.jogador_w;
+            }
+        }
+
+        // ── Salva estado na tabela partidas ───────────────────────────────
+        const updatePayload = {
+            estado: estadoCompleto,
+            turno: G.turn,
+            status: novoStatus,
+        };
+        if (winnerId) updatePayload.winner_id = winnerId;
+
+        await db.from('partidas').update(updatePayload).eq('id', partidaId);
+
+        // ── Atualiza ranking apenas quando a partida terminou ─────────────
+        const jogoTerminou = ['checkmate', 'stalemate', 'surrender', 'abandonada'].includes(novoStatus);
+        if (jogoTerminou && partida) {
+            await atualizarEstatisticas(winnerId, loserId, isDraw, partida);
+        }
+
     } catch (err) {
         console.error('Erro ao salvar estado:', err);
+    }
+}
+
+// ─── ATUALIZAR ESTATÍSTICAS NO RANKING ──────────────────────────────────────
+
+/**
+ * Atualiza wins/losses/draws/streak em ranking_global e profiles para ambos os jogadores.
+ * Só o jogador que disparou o fim da partida executa isto (evita duplicata).
+ */
+async function atualizarEstatisticas(winnerId, loserId, isDraw, partida) {
+    try {
+        // IDs dos dois jogadores
+        const jogadorIds = [partida.jogador_w, partida.jogador_b].filter(Boolean);
+        if (jogadorIds.length < 2) return; // partida incompleta, não salva
+
+        // Busca stats atuais de ambos em ranking_global
+        const { data: rows } = await db
+            .from('ranking_global')
+            .select('*')
+            .in('id', jogadorIds);
+
+        // Cria mapa id → stats (com fallback zerado)
+        const statsMap = {};
+        jogadorIds.forEach(id => {
+            statsMap[id] = rows?.find(r => r.id === id) || {
+                id, wins: 0, losses: 0, draws: 0,
+                total_games: 0, win_streak: 0, best_streak: 0
+            };
+        });
+
+        // Calcula novos valores para cada jogador
+        const updates = jogadorIds.map(id => {
+            const s = { ...statsMap[id] };
+            s.total_games += 1;
+
+            if (isDraw) {
+                s.draws += 1;
+                s.win_streak = 0;
+            } else if (id === winnerId) {
+                s.wins += 1;
+                s.win_streak += 1;
+                if (s.win_streak > s.best_streak) s.best_streak = s.win_streak;
+            } else {
+                s.losses += 1;
+                s.win_streak = 0;
+            }
+
+            s.win_rate_pct = s.total_games > 0
+                ? Math.round((s.wins / s.total_games) * 100)
+                : 0;
+
+            return s;
+        });
+
+        // Upsert em ranking_global
+        for (const u of updates) {
+            await db.from('ranking_global').upsert(u, { onConflict: 'id' });
+        }
+
+        // Também sincroniza em profiles (wins/losses/draws/win_streak)
+        for (const u of updates) {
+            await db.from('profiles').update({
+                wins: u.wins,
+                losses: u.losses,
+                draws: u.draws,
+                win_streak: u.win_streak,
+                total_games: u.total_games,
+            }).eq('id', u.id);
+        }
+
+    } catch (err) {
+        console.error('Erro ao atualizar estatísticas:', err);
     }
 }
 
