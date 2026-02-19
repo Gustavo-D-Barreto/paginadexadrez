@@ -679,7 +679,7 @@ button:active {
 
 /* ─── PEÇAS COM IMAGEM ────────────────────────────────────────────────────────── */
 .piece-white-pawn {
-    background-image: url('spr_peao_roxo.png');
+    background-image: url('spr_peao_verde.png');
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center bottom;
@@ -693,6 +693,48 @@ button:active {
 
 .piece-black-pawn {
     background-image: url('spr_peao_roxo02.png');
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center bottom;
+    width: 110%;
+    height: 110%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+}
+
+/* Image sprite for white rook (torre) */
+.piece-white-rook {
+    background-image: url('spr_torre_verde.png');
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center bottom;
+    width: 110%;
+    height: 110%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+}
+
+/* Image sprite for white knight (cavalo) */
+.piece-white-knight {
+    background-image: url('spr_cavalo_verde.png');
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center bottom;
+    width: 110%;
+    height: 110%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+}
+
+/* Image sprite for queen white*/
+.piece-black-queen {
+    background-image: url('spr_ rainha_roxa.png');
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center bottom;

@@ -192,13 +192,14 @@ function createSquare(row, col, kingInCheck) {
 
         // Mapa de peças com sprite customizado por cor
         const SPRITE_MAP = {
-            /* white: {
+            white: {
                 pawn: 'piece-white-pawn',
                 rook: 'piece-white-rook',
-                knight: 'piece-white-knight',
-            }, */
+                knight: 'piece-white-knight'
+            },
             black: {
                 pawn: 'piece-black-pawn',
+                queen:'piece-black-queen'
             }
         };
 
