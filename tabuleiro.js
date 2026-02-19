@@ -195,7 +195,8 @@ function createSquare(row, col, kingInCheck) {
             white: {
                 pawn: 'piece-white-pawn',
                 rook: 'piece-white-rook',
-                knight: 'piece-white-knight'
+                knight: 'piece-white-knight',
+                quenn: 'piece-white-queen'
             },
             black: {
                 pawn: 'piece-black-pawn',

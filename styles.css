@@ -682,26 +682,30 @@ button:active {
     background-image: url('spr_peao_verde.png');
     background-repeat: no-repeat;
     background-size: contain;
-    background-position: center bottom;
-    width: 110%;
-    height: 110%;
+    background-position: center center;
+    width: 130%;
+    height: 130%;
     display: flex;
     justify-content: center;
     align-items: center;
     pointer-events: none;
+    transform: scale(1.7); /* Aumenta em 30% o tamanho visual */
+    z-index: 10; /* Opcional: garante que ela fique por cima de outras peças ao crescer */
 }
 
 .piece-black-pawn {
     background-image: url('spr_peao_roxo02.png');
     background-repeat: no-repeat;
     background-size: contain;
-    background-position: center bottom;
-    width: 110%;
-    height: 110%;
+    background-position: center center;
+    width: 130%;
+    height: 130%;
     display: flex;
     justify-content: center;
     align-items: center;
     pointer-events: none;
+    transform: scale(1.7); /* Aumenta em 30% o tamanho visual */
+    z-index: 10; /* Opcional: garante que ela fique por cima de outras peças ao crescer */
 }
 
 /* Image sprite for white rook (torre) */
@@ -732,19 +736,43 @@ button:active {
     pointer-events: none;
 }
 
-/* Image sprite for queen white*/
+/* Image sprite for black queen */
 .piece-black-queen {
-    background-image: url('spr_ rainha_roxa.png');
+    background-image: url('spr_rainha_roxa.png');
     background-repeat: no-repeat;
     background-size: contain;
-    background-position: center bottom;
-    width: 110%;
-    height: 110%;
+    background-position: center center;
+    width: 90%;
+    height: 90%;
     display: flex;
     justify-content: center;
     align-items: center;
     pointer-events: none;
+    transform-origin: center;
+    transform: scale(1.5); /* Aumenta em 30% o tamanho visual */
+    z-index: 10; /* Opcional: garante que ela fique por cima de outras peças ao crescer */
 }
+
+/* Image sprite for white queen */
+.piece-white-queen {
+    background-image: url('spr_rainha_verde.png');
+    background-repeat: no-repeat;
+    background-size: contain;
+    background-position: center center;
+    width: 90%;
+    height: 90%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    pointer-events: none;
+    transform-origin: center;
+    transform: scale(1.5); /* Aumenta em 30% o tamanho visual */
+    z-index: 10; /* Opcional: garante que ela fique por cima de outras peças ao crescer */
+}
+
+
+
+
 
 /* ─── STATUS ─────────────────────────────────────────────────────────────────── */
 .status-display {
