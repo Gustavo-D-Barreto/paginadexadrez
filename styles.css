@@ -31,14 +31,14 @@
 body {
     font-family: 'Cinzel', 'Georgia', serif;
     min-height: 100vh;
-    background: url('fundo_login.png') center center / cover no-repeat fixed;
+    background: url('sprites/fundo_login.png') center center / cover no-repeat fixed;
     color: var(--text-main);
     display: flex;
     flex-direction: column;
 }
 
 body.game-active {
-    background: url('background03.png') center center / cover no-repeat fixed;
+    background: url('sprites/background03.png') center center / cover no-repeat fixed;
 }
 
 /* ─── TOP BAR ────────────────────────────────────────────────────────────────── */
@@ -126,7 +126,7 @@ button:active {
 }
 
 .menu-card {
-    background: url('interface_lobby.png') no-repeat center center;
+    background: url('sprites/interface_lobby.png') no-repeat center center;
     background-size: 100% 100%;
     width: 100%;
     max-width: 750px;
@@ -552,7 +552,7 @@ button:active {
     flex-direction: column;
     width: 640px;
     height: 640px;
-    background: url('spr_tabuleiro.png') no-repeat center center / 100% 100%;
+    background: url('sprites/spr_tabuleiro.png') no-repeat center center / 100% 100%;
 }
 
 .board-row {
@@ -724,7 +724,7 @@ button:active {
 
 /* ─── PEÇAS COM IMAGEM ────────────────────────────────────────────────────────── */
 .piece-white-pawn {
-    background-image: url('spr_peao_verde.png');
+    background-image: url('sprites/spr_peao_verde.png');
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center center;
@@ -739,7 +739,7 @@ button:active {
 }
 
 .piece-black-pawn {
-    background-image: url('spr_peao_roxo02.png');
+    background-image: url('sprites/spr_peao_roxo02.png');
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center center;
@@ -755,7 +755,7 @@ button:active {
 
 /* Image sprite for white rook (torre) */
 .piece-white-rook {
-    background-image: url('spr_torre_verde.png');
+    background-image: url('sprites/spr_torre_verde.png');
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center bottom;
@@ -769,7 +769,7 @@ button:active {
 
 /* Image sprite for white knight (cavalo) */
 .piece-white-knight {
-    background-image: url('spr_cavalo_verde.png');
+    background-image: url('sprites/spr_cavalo_verde.png');
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center bottom;
@@ -783,7 +783,7 @@ button:active {
 
 /* Image sprite for black queen */
 .piece-black-queen {
-    background-image: url('spr_rainha_roxa.png');
+    background-image: url('sprites/spr_rainha_roxa.png');
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center center;
@@ -800,7 +800,7 @@ button:active {
 
 /* Image sprite for white queen */
 .piece-white-queen {
-    background-image: url('spr_rainha_verde.png');
+    background-image: url('sprites/spr_rainha_verde.png');
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center center;
@@ -1038,7 +1038,7 @@ button:active {
 }
 
 .login-card {
-    background: url('interface_login01.png') no-repeat center center;
+    background: url('sprites/interface_login01.png') no-repeat center center;
     background-size: 100% 100%;
     backdrop-filter: none;
     background-color: transparent;
@@ -1384,7 +1384,7 @@ button:active {
 /* ─── SPRITES BRANCAS: TORRE E CAVALO ────────────────────────────────────────── */
 
 .piece-white-rook {
-    background-image: url('spr_torre_verde.png');
+    background-image: url('sprites/spr_torre_verde.png');
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center bottom;
@@ -1397,7 +1397,7 @@ button:active {
 }
 
 .piece-white-knight {
-    background-image: url('spr_cavalo_verde.png');
+    background-image: url('sprites/spr_cavalo_verde.png');
     background-repeat: no-repeat;
     background-size: contain;
     background-position: center bottom;

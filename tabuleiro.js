@@ -615,6 +615,7 @@ async function doMove(fr, fc, tr, tc, flags = {}, promo = null) {
         G.captured[G.turn] = G.captured[G.turn] || [];
         G.captured[G.turn].push(movingPiece);
         mostrarMensagem('◼ Peça caiu no buraco e foi capturada!', 1400);
+        try { tocarSom('buraco'); } catch (e) { /* ignora */ }
 
         // Registro e efeitos similares a uma captura comum
         G.lastMove = { fr, fc, tr, tc };
@@ -659,7 +660,22 @@ async function doMove(fr, fc, tr, tc, flags = {}, promo = null) {
 
     // Adiciona peça capturada à lista
     if (capturedPiece) {
+        G.captured[G.turn] = G.captured[G.turn] || [];
         G.captured[G.turn].push(capturedPiece);
+        // Conta capturas para a peça que atacou (usar o objeto que está em G.board após applyMove)
+        try {
+            const movedPiece = G.board[tr] && G.board[tr][tc] ? G.board[tr][tc] : null;
+            if (movedPiece) {
+                movedPiece.capturas = (movedPiece.capturas || 0) + 1;
+                console.log(`[CAPTURA] ${movedPiece.t} em (${tr},${tc}) capturas: ${movedPiece.capturas}`, movedPiece);
+                // Se for cavalo e alcançou 3 capturas, desbloqueia a passiva
+                if (movedPiece.t === 'knight' && movedPiece.capturas >= 3) {
+                    movedPiece.passivaReady = true;
+                    console.log(`[PASSIVA READY] Cavalo desbloqueou passiva!`, movedPiece);
+                    mostrarMensagem('✦ Passiva do Cavalo desbloqueada! Clique com o botão direito para ativar.', 2000);
+                }
+            }
+        } catch (e) { /* ignora se movedPiece indefinido */ }
         // Se benção ativa, concede pontos extras equivalentes ao valor da peça (dobrando)
         try {
             if (typeof lojaState !== 'undefined' && lojaState.bencao && lojaState.bencao[G.turn] > 0) {
@@ -669,6 +685,16 @@ async function doMove(fr, fc, tr, tc, flags = {}, promo = null) {
             }
         } catch (e) { /* ignora se lojaState não existir */ }
     }
+
+    // Sons: captura ou simples movimento; promoção tem som próprio
+    try {
+        if (capturedPiece) {
+            tocarSom('capturar');
+        } else {
+            tocarSom('mover');
+        }
+        if (promo) tocarSom('promocao');
+    } catch (e) { /* ignora falhas de áudio */ }
 
     // Registra o movimento
     G.lastMove = { fr, fc, tr, tc };
