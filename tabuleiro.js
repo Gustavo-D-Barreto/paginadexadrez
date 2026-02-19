@@ -506,7 +506,7 @@ function detonateDangerZone() {
     });
 
     // Após a animação, remove as peças do tabuleiro e rerender
-    setTimeout(() => {
+    setTimeout(async () => {
         let killed = 0;
         for (const pos of toKill) {
             if (G.board[pos.r] && G.board[pos.r][pos.c] && G.board[pos.r][pos.c].t !== 'hole') {
@@ -517,6 +517,11 @@ function detonateDangerZone() {
         G.dangerZone = null;
         if (killed > 0) mostrarMensagem(`☠ Zona perigosa detonou! ${killed} peça(s) foram destruídas.`, 2600);
         renderBoard();
+
+        // ─── CORREÇÃO: Salva o estado após a detonação para sincronizar com o oponente ───
+        if (typeof salvarEstadoNoSupabase === 'function' && partidaId) {
+            await salvarEstadoNoSupabase();
+        }
     }, ANIM_MS);
 }
 
@@ -594,9 +599,16 @@ async function doMove(fr, fc, tr, tc, flags = {}, promo = null) {
         // A cada 8 rodadas (16 meios-movimentos) spawna uma zona perigosa
         if (meiosMovimentos > 0 && meiosMovimentos % 16 === 0 && !G.dangerZone) spawnDangerZone();
 
-        const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
-        const isInCheck = inCheck(G.board, G.turn);
-        G.status = !hasLegalMoves ? (isInCheck ? 'checkmate' : 'stalemate') : (isInCheck ? 'check' : 'playing');
+        // Verifica status do jogo com proteção contra erros
+        try {
+            const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
+            const isInCheck = inCheck(G.board, G.turn);
+            G.status = !hasLegalMoves ? (isInCheck ? 'checkmate' : 'stalemate') : (isInCheck ? 'check' : 'playing');
+        } catch (err) {
+            console.error('Erro na verificação de regras (doMove - rebater):', err);
+            // Em caso de erro, assume que o jogo segue, para não travar
+            G.status = 'playing';
+        }
 
         // Limpa seleção e poder ativo
         G.sel = null;
@@ -642,9 +654,15 @@ async function doMove(fr, fc, tr, tc, flags = {}, promo = null) {
         if (meiosMovimentos > 0 && meiosMovimentos % 6 === 0 && !G.ruby) spawnRuby();
         if (meiosMovimentos > 0 && meiosMovimentos % 16 === 0 && !G.dangerZone) spawnDangerZone();
 
-        const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
-        const isInCheck = inCheck(G.board, G.turn);
-        G.status = !hasLegalMoves ? (isInCheck ? 'checkmate' : 'stalemate') : (isInCheck ? 'check' : 'playing');
+        // Verifica status do jogo com proteção
+        try {
+            const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
+            const isInCheck = inCheck(G.board, G.turn);
+            G.status = !hasLegalMoves ? (isInCheck ? 'checkmate' : 'stalemate') : (isInCheck ? 'check' : 'playing');
+        } catch (err) {
+            console.error('Erro na verificação de regras (doMove - buraco):', err);
+            G.status = 'playing';
+        }
 
         // Limpa seleção e poder ativo
         G.sel = null;
@@ -731,13 +749,18 @@ async function doMove(fr, fc, tr, tc, flags = {}, promo = null) {
     // A cada 8 rodadas (16 meios-movimentos) spawna uma zona perigosa
     if (meiosMovimentos > 0 && meiosMovimentos % 16 === 0 && !G.dangerZone) spawnDangerZone();
 
-    // Verifica status do jogo
-    const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
-    const isInCheck = inCheck(G.board, G.turn);
+    // Verifica status do jogo com proteção
+    try {
+        const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
+        const isInCheck = inCheck(G.board, G.turn);
 
-    G.status = !hasLegalMoves
-        ? (isInCheck ? 'checkmate' : 'stalemate')
-        : (isInCheck ? 'check' : 'playing');
+        G.status = !hasLegalMoves
+            ? (isInCheck ? 'checkmate' : 'stalemate')
+            : (isInCheck ? 'check' : 'playing');
+    } catch (err) {
+        console.error('Erro na verificação de regras (doMove - normal):', err);
+        G.status = 'playing';
+    }
 
     // Limpa seleção
     G.sel = null;
@@ -859,11 +882,16 @@ async function passarVezPorPoder(descricao = 'Poder') {
     // A cada 8 rodadas (16 meios-movimentos) spawna uma zona perigosa
     if (meiosMovimentos > 0 && meiosMovimentos % 16 === 0 && !G.dangerZone) spawnDangerZone();
 
-    const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
-    const isInCheck = inCheck(G.board, G.turn);
-    G.status = !hasLegalMoves
-        ? (isInCheck ? 'checkmate' : 'stalemate')
-        : (isInCheck ? 'check' : 'playing');
+    try {
+        const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
+        const isInCheck = inCheck(G.board, G.turn);
+        G.status = !hasLegalMoves
+            ? (isInCheck ? 'checkmate' : 'stalemate')
+            : (isInCheck ? 'check' : 'playing');
+    } catch (err) {
+        console.error('Erro na verificação de regras (passarVezPorPoder):', err);
+        G.status = 'playing';
+    }
 
     G.sel = null;
     G.legal = [];
