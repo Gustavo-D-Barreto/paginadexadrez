@@ -604,6 +604,7 @@ async function doMove(fr, fc, tr, tc, flags = {}, promo = null) {
             const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
             const isInCheck = inCheck(G.board, G.turn);
             G.status = !hasLegalMoves ? (isInCheck ? 'checkmate' : 'stalemate') : (isInCheck ? 'check' : 'playing');
+            if (G.status === 'checkmate') showEndGameScreen(G.turn === 'white' ? 'black' : 'white');
         } catch (err) {
             console.error('Erro na verificação de regras (doMove - rebater):', err);
             // Em caso de erro, assume que o jogo segue, para não travar
@@ -659,6 +660,7 @@ async function doMove(fr, fc, tr, tc, flags = {}, promo = null) {
             const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
             const isInCheck = inCheck(G.board, G.turn);
             G.status = !hasLegalMoves ? (isInCheck ? 'checkmate' : 'stalemate') : (isInCheck ? 'check' : 'playing');
+            if (G.status === 'checkmate') showEndGameScreen(G.turn === 'white' ? 'black' : 'white');
         } catch (err) {
             console.error('Erro na verificação de regras (doMove - buraco):', err);
             G.status = 'playing';
@@ -757,6 +759,10 @@ async function doMove(fr, fc, tr, tc, flags = {}, promo = null) {
         G.status = !hasLegalMoves
             ? (isInCheck ? 'checkmate' : 'stalemate')
             : (isInCheck ? 'check' : 'playing');
+
+        if (G.status === 'checkmate') {
+            showEndGameScreen(G.turn === 'white' ? 'black' : 'white');
+        }
     } catch (err) {
         console.error('Erro na verificação de regras (doMove - normal):', err);
         G.status = 'playing';
@@ -888,6 +894,10 @@ async function passarVezPorPoder(descricao = 'Poder') {
         G.status = !hasLegalMoves
             ? (isInCheck ? 'checkmate' : 'stalemate')
             : (isInCheck ? 'check' : 'playing');
+
+        if (G.status === 'checkmate') {
+            showEndGameScreen(G.turn === 'white' ? 'black' : 'white');
+        }
     } catch (err) {
         console.error('Erro na verificação de regras (passarVezPorPoder):', err);
         G.status = 'playing';
@@ -1185,4 +1195,67 @@ function newGame() {
 
     initGame();
     renderBoard();
+}
+
+/**
+ * Exibe a tela de fim de jogo com a imagem correspondente.
+ * @param {string} winnerColor - 'white' ou 'black'
+ */
+function showEndGameScreen(winnerColor) {
+    // Evita duplicidade
+    if (document.getElementById('game-over-overlay')) return;
+
+    const overlay = document.createElement('div');
+    overlay.id = 'game-over-overlay';
+    overlay.className = 'game-over-overlay';
+
+    // Determina qual imagem mostrar
+    let imgSrc = '';
+    let isVictory = false;
+
+    // Verifica se é multiplayer -> tem partidaId e minhaCor (definidos globalmente em ambiente.js/dashboard)
+    // Se minhaCor não estiver definida, assume-se local (mostra vitória da cor vencedora)
+    if (typeof partidaId !== 'undefined' && partidaId && typeof minhaCor !== 'undefined' && minhaCor) {
+        if (winnerColor === minhaCor) {
+            // Vitória
+            isVictory = true;
+            imgSrc = winnerColor === 'white'
+                ? 'sprites/spr_vitoria_brancas.png'
+                : 'sprites/spr_vitoria_pretas.png';
+        } else {
+            // Derrota
+            isVictory = false;
+            imgSrc = 'sprites/spr_derrota.png';
+        }
+    } else {
+        // Local: mostra vitória da cor
+        isVictory = true;
+        imgSrc = winnerColor === 'white'
+            ? 'sprites/spr_vitoria_brancas.png'
+            : 'sprites/spr_vitoria_pretas.png';
+    }
+
+    const content = document.createElement('div');
+    content.className = 'game-over-content';
+
+    const img = document.createElement('img');
+    img.src = imgSrc;
+    img.className = 'game-over-image ' + (isVictory ? 'victory' : 'defeat');
+
+    // Ao clicar na imagem, volta ao menu (recarrega a página)
+    img.onclick = () => {
+        window.location.reload();
+    };
+
+    // Se derrota, também adicionamos cursor pointer e reload para não travar
+    if (!isVictory) {
+        img.style.cursor = 'pointer';
+    }
+
+    content.appendChild(img);
+    overlay.appendChild(content);
+    document.body.appendChild(overlay);
+
+    // Mostra overlay
+    overlay.style.display = 'flex';
 }

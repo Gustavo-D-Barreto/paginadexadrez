@@ -1716,3 +1716,49 @@ button:active {
         filter: drop-shadow(0 0 15px #ffd700) drop-shadow(0 0 25px rgba(255, 215, 0, 0.9));
     }
 }
+/* --- TELA DE FIM DE JOGO ------------------------------------------------------ */
+.game-over-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.85);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 3000;
+    backdrop-filter: blur(5px);
+    animation: fadeInOverlay 0.5s ease-out;
+}
+
+.game-over-content {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+}
+
+.game-over-image {
+    max-width: 90vw;
+    max-height: 80vh;
+    object-fit: contain;
+    filter: drop-shadow(0 0 30px rgba(0, 0, 0, 0.8));
+    animation: scaleIn 0.6s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    cursor: default;
+}
+
+/* Apenas a imagem de vitória é clicável para ir ao menu */
+.game-over-image.victory {
+    cursor: pointer;
+    transition: transform 0.3s ease, filter 0.3s ease;
+}
+
+.game-over-image.victory:hover {
+    transform: scale(1.02);
+    filter: drop-shadow(0 0 40px rgba(201, 168, 76, 0.6));
+}
+
+@keyframes scaleIn {
+    from { transform: scale(0.5); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
