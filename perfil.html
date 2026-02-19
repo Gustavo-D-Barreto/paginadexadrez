@@ -1,0 +1,785 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>♟ Xadrez das Sombras — Perfil</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700;900&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap"
+        rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+    <style>
+        /* ── RESET & BASE ───────────────────────────────── */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        :root {
+            --bg: #0a0a0f;
+            --bg2: #0f0f18;
+            --panel: #13131f;
+            --panel2: #1a1a2a;
+            --border: #2a2a42;
+            --border-glow: #3d3d6b;
+            --gold: #c9a84c;
+            --gold-light: #e8c76a;
+            --gold-dim: #7a6330;
+            --text: #d4cfc4;
+            --text-dim: #7a7570;
+            --white-acc: #e8e4d8;
+            --black-acc: #2a2a3a;
+            --win: #4ade80;
+            --loss: #f87171;
+            --draw: #93c5fd;
+            --ruby: #e84560;
+        }
+
+        html,
+        body {
+            min-height: 100vh;
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Crimson Text', Georgia, serif;
+            font-size: 16px;
+        }
+
+        /* ── BACKGROUND TEXTURE ─────────────────────────── */
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse 80% 60% at 50% -10%, rgba(60, 40, 100, 0.18) 0%, transparent 70%),
+                radial-gradient(ellipse 40% 40% at 10% 90%, rgba(201, 168, 76, 0.06) 0%, transparent 60%),
+                repeating-linear-gradient(0deg, transparent, transparent 39px, rgba(255, 255, 255, 0.015) 40px),
+                repeating-linear-gradient(90deg, transparent, transparent 39px, rgba(255, 255, 255, 0.015) 40px);
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* ── TOPBAR ─────────────────────────────────────── */
+        .topbar {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            height: 56px;
+            background: rgba(10, 10, 15, 0.92);
+            border-bottom: 1px solid var(--border);
+            backdrop-filter: blur(10px);
+        }
+
+        .topbar-logo {
+            font-family: 'Cinzel', serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+            color: var(--gold);
+            letter-spacing: .12em;
+            text-decoration: none;
+        }
+
+        .topbar-logo:hover {
+            color: var(--gold-light);
+        }
+
+        .topbar-right {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+
+        .btn-back {
+            font-family: 'Cinzel', serif;
+            font-size: .75rem;
+            letter-spacing: .08em;
+            color: var(--text-dim);
+            background: transparent;
+            border: 1px solid var(--border);
+            padding: .35rem .85rem;
+            border-radius: 3px;
+            cursor: pointer;
+            transition: all .2s;
+        }
+
+        .btn-back:hover {
+            color: var(--gold);
+            border-color: var(--gold-dim);
+        }
+
+        /* ── MAIN LAYOUT ────────────────────────────────── */
+        .page-wrapper {
+            position: relative;
+            z-index: 1;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2.5rem 1.5rem 4rem;
+        }
+
+        /* ── HERO DO PERFIL ─────────────────────────────── */
+        .profile-hero {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            padding: 2rem 2.5rem;
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            margin-bottom: 1.5rem;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .profile-hero::before {
+            content: '♚';
+            position: absolute;
+            right: -1rem;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 9rem;
+            color: rgba(201, 168, 76, 0.04);
+            pointer-events: none;
+            line-height: 1;
+        }
+
+        .avatar-ring {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            border: 2px solid var(--gold-dim);
+            background: var(--panel2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.8rem;
+            flex-shrink: 0;
+            position: relative;
+        }
+
+        .avatar-ring::after {
+            content: '';
+            position: absolute;
+            inset: -5px;
+            border-radius: 50%;
+            border: 1px solid rgba(201, 168, 76, 0.2);
+        }
+
+        .hero-info {
+            flex: 1;
+        }
+
+        .hero-name {
+            font-family: 'Cinzel', serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--gold-light);
+            letter-spacing: .05em;
+            margin-bottom: .3rem;
+            line-height: 1.1;
+        }
+
+        .hero-username {
+            font-size: .95rem;
+            color: var(--text-dim);
+            letter-spacing: .03em;
+            margin-bottom: .7rem;
+        }
+
+        .hero-rank {
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            background: rgba(201, 168, 76, 0.08);
+            border: 1px solid var(--gold-dim);
+            border-radius: 3px;
+            padding: .25rem .7rem;
+            font-family: 'Cinzel', serif;
+            font-size: .72rem;
+            color: var(--gold);
+            letter-spacing: .1em;
+        }
+
+        .hero-since {
+            font-size: .85rem;
+            color: var(--text-dim);
+            margin-top: .5rem;
+        }
+
+        /* ── STAT CARDS ─────────────────────────────────── */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+        }
+
+        @media (max-width: 640px) {
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .stat-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 1.2rem 1rem;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+            transition: border-color .2s;
+        }
+
+        .stat-card:hover {
+            border-color: var(--border-glow);
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+        }
+
+        .stat-card.wins::before {
+            background: var(--win);
+        }
+
+        .stat-card.losses::before {
+            background: var(--loss);
+        }
+
+        .stat-card.draws::before {
+            background: var(--draw);
+        }
+
+        .stat-card.games::before {
+            background: var(--gold);
+        }
+
+        .stat-val {
+            font-family: 'Cinzel', serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            line-height: 1;
+            margin-bottom: .35rem;
+        }
+
+        .stat-card.wins .stat-val {
+            color: var(--win);
+        }
+
+        .stat-card.losses .stat-val {
+            color: var(--loss);
+        }
+
+        .stat-card.draws .stat-val {
+            color: var(--draw);
+        }
+
+        .stat-card.games .stat-val {
+            color: var(--gold);
+        }
+
+        .stat-label {
+            font-family: 'Cinzel', serif;
+            font-size: .62rem;
+            letter-spacing: .12em;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        /* ── PAINEL GERAL ───────────────────────────────── */
+        .panel {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 5px;
+            padding: 1.5rem 1.75rem;
+            margin-bottom: 1.5rem;
+        }
+
+        .panel-title {
+            font-family: 'Cinzel', serif;
+            font-size: .8rem;
+            letter-spacing: .14em;
+            color: var(--gold);
+            text-transform: uppercase;
+            margin-bottom: 1.2rem;
+            display: flex;
+            align-items: center;
+            gap: .6rem;
+        }
+
+        .panel-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: var(--border);
+        }
+
+        /* ── BARRA DE DESEMPENHO ────────────────────────── */
+        .winrate-bar-wrap {
+            margin-bottom: .5rem;
+        }
+
+        .winrate-numbers {
+            display: flex;
+            justify-content: space-between;
+            font-size: .85rem;
+            margin-bottom: .4rem;
+            color: var(--text-dim);
+        }
+
+        .winrate-bar {
+            height: 10px;
+            border-radius: 5px;
+            background: var(--panel2);
+            overflow: hidden;
+            display: flex;
+        }
+
+        .wr-seg {
+            height: 100%;
+            transition: width .8s cubic-bezier(.4, 0, .2, 1);
+        }
+
+        .wr-seg.win {
+            background: var(--win);
+        }
+
+        .wr-seg.draw {
+            background: var(--draw);
+        }
+
+        .wr-seg.loss {
+            background: var(--loss);
+        }
+
+        .winrate-legend {
+            display: flex;
+            gap: 1.2rem;
+            margin-top: .5rem;
+            font-size: .82rem;
+        }
+
+        .wl-item {
+            display: flex;
+            align-items: center;
+            gap: .3rem;
+            color: var(--text-dim);
+        }
+
+        .wl-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
+        /* ── HISTÓRICO DE PARTIDAS ──────────────────────── */
+        .match-list {
+            display: flex;
+            flex-direction: column;
+            gap: .5rem;
+        }
+
+        .match-row {
+            display: flex;
+            align-items: center;
+            gap: .8rem;
+            padding: .65rem 1rem;
+            border-radius: 4px;
+            background: var(--panel2);
+            border-left: 3px solid transparent;
+            font-size: .9rem;
+            transition: background .2s;
+        }
+
+        .match-row:hover {
+            background: #1e1e30;
+        }
+
+        .match-row.win-row {
+            border-left-color: var(--win);
+        }
+
+        .match-row.loss-row {
+            border-left-color: var(--loss);
+        }
+
+        .match-row.draw-row {
+            border-left-color: var(--draw);
+        }
+
+        .match-result {
+            font-family: 'Cinzel', serif;
+            font-size: .68rem;
+            letter-spacing: .1em;
+            font-weight: 700;
+            width: 40px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .win-row .match-result {
+            color: var(--win);
+        }
+
+        .loss-row .match-result {
+            color: var(--loss);
+        }
+
+        .draw-row .match-result {
+            color: var(--draw);
+        }
+
+        .match-vs {
+            flex: 1;
+            color: var(--text);
+        }
+
+        .match-vs small {
+            color: var(--text-dim);
+            font-size: .8rem;
+        }
+
+        .match-color {
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+
+        .match-date {
+            font-size: .78rem;
+            color: var(--text-dim);
+            flex-shrink: 0;
+            min-width: 80px;
+            text-align: right;
+        }
+
+        /* ── EMPTY STATE ────────────────────────────────── */
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: var(--text-dim);
+            font-style: italic;
+        }
+
+        /* ── LOADING ────────────────────────────────────── */
+        .loading-pulse {
+            display: inline-block;
+            width: 60px;
+            height: 18px;
+            border-radius: 3px;
+            background: linear-gradient(90deg, var(--panel2) 25%, var(--border) 50%, var(--panel2) 75%);
+            background-size: 200% 100%;
+            animation: pulse 1.4s infinite;
+        }
+
+        @keyframes pulse {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        /* ── DIVISOR ORNAMENTAL ─────────────────────────── */
+        .ornament {
+            text-align: center;
+            color: var(--gold-dim);
+            font-size: .8rem;
+            letter-spacing: .3em;
+            margin: .5rem 0 1.2rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <!-- TOPBAR -->
+    <div class="topbar">
+        <a class="topbar-logo" href="dashboard.html">♟ XADREZ DAS SOMBRAS</a>
+        <div class="topbar-right">
+            <button class="btn-back" onclick="window.location.href='dashboard.html'">← Voltar ao Jogo</button>
+        </div>
+    </div>
+
+    <!-- CONTEÚDO -->
+    <div class="page-wrapper">
+
+        <!-- HERO -->
+        <div class="profile-hero" id="profile-hero">
+            <div class="avatar-ring" id="avatar">♟</div>
+            <div class="hero-info">
+                <div class="hero-name" id="hero-name"><span class="loading-pulse"></span></div>
+                <div class="hero-username" id="hero-username"><span class="loading-pulse"></span></div>
+                <div class="hero-rank" id="hero-rank">⚔ Carregando...</div>
+                <div class="hero-since" id="hero-since"></div>
+            </div>
+        </div>
+
+        <!-- STATS -->
+        <div class="stats-grid">
+            <div class="stat-card wins">
+                <div class="stat-val" id="stat-wins">—</div>
+                <div class="stat-label">Vitórias</div>
+            </div>
+            <div class="stat-card losses">
+                <div class="stat-val" id="stat-losses">—</div>
+                <div class="stat-label">Derrotas</div>
+            </div>
+            <div class="stat-card draws">
+                <div class="stat-val" id="stat-draws">—</div>
+                <div class="stat-label">Empates</div>
+            </div>
+            <div class="stat-card games">
+                <div class="stat-val" id="stat-games">—</div>
+                <div class="stat-label">Partidas</div>
+            </div>
+        </div>
+
+        <!-- DESEMPENHO -->
+        <div class="panel">
+            <div class="panel-title">⚔ Desempenho Geral</div>
+
+            <div class="winrate-bar-wrap">
+                <div class="winrate-numbers">
+                    <span id="wr-pct">Taxa de Vitória: —</span>
+                    <span id="wr-streak" style="color: var(--gold)"></span>
+                </div>
+                <div class="winrate-bar">
+                    <div class="wr-seg win" id="wr-win" style="width:0%"></div>
+                    <div class="wr-seg draw" id="wr-draw" style="width:0%"></div>
+                    <div class="wr-seg loss" id="wr-loss" style="width:0%"></div>
+                </div>
+                <div class="winrate-legend">
+                    <div class="wl-item">
+                        <div class="wl-dot" style="background:var(--win)"></div> Vitórias
+                    </div>
+                    <div class="wl-item">
+                        <div class="wl-dot" style="background:var(--draw)"></div> Empates
+                    </div>
+                    <div class="wl-item">
+                        <div class="wl-dot" style="background:var(--loss)"></div> Derrotas
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- HISTÓRICO -->
+        <div class="panel">
+            <div class="panel-title">📜 Últimas Partidas</div>
+            <div class="match-list" id="match-list">
+                <div class="empty-state">Carregando partidas...</div>
+            </div>
+        </div>
+
+        <div class="ornament">— ✦ —</div>
+
+    </div><!-- fim page-wrapper -->
+
+    <script>
+        /* ══════════════════════════════════════════════════════════════
+           CONFIGURAÇÃO SUPABASE
+           Troque pelas suas credenciais
+        ══════════════════════════════════════════════════════════════ */
+        const SUPABASE_URL = 'https://azpycumnnocmzuglkrma.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF6cHljdW1ubm9jbXp1Z2xrcm1hIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEyMjYxMTUsImV4cCI6MjA4NjgwMjExNX0.wMuv40j43LAdb7oE1A6j2jsMy6EMPG5ZSgI8lVN7Gvg';
+        const { createClient } = supabase;
+        const db = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        /* ══════════════════════════════════════════════════════════════
+           FUNÇÕES AUXILIARES
+        ══════════════════════════════════════════════════════════════ */
+
+        function calcRank(wins, total) {
+            if (total === 0) return '✦ Novato';
+            const wr = wins / total;
+            if (wins >= 50 && wr >= 0.7) return '♛ Grão-Mestre';
+            if (wins >= 30 && wr >= 0.6) return '♜ Mestre';
+            if (wins >= 15 && wr >= 0.5) return '♝ Expert';
+            if (wins >= 5) return '♞ Cavaleiro';
+            return '♟ Escudeiro';
+        }
+
+        function formatDate(iso) {
+            if (!iso) return '—';
+            const d = new Date(iso);
+            return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: '2-digit' });
+        }
+
+        function relTime(iso) {
+            if (!iso) return '';
+            const diff = Date.now() - new Date(iso).getTime();
+            const days = Math.floor(diff / 86400000);
+            if (days === 0) return 'hoje';
+            if (days === 1) return 'ontem';
+            if (days < 30) return `${days}d atrás`;
+            const months = Math.floor(days / 30);
+            if (months < 12) return `${months}m atrás`;
+            return `${Math.floor(months / 12)}a atrás`;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           CARREGAR PERFIL
+        ══════════════════════════════════════════════════════════════ */
+        async function carregarPerfil() {
+            // Busca sessão atual
+            const { data: { session } } = await db.auth.getSession();
+            if (!session) {
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const userId = session.user.id;
+
+            // Busca perfil
+            const { data: profile, error } = await db
+                .from('profiles')
+                .select('*')
+                .eq('id', userId)
+                .single();
+
+            if (error || !profile) {
+                document.getElementById('hero-name').textContent = 'Perfil não encontrado';
+                return;
+            }
+
+            // Preenche hero
+            const wins = profile.wins || 0;
+            const losses = profile.losses || 0;
+            const draws = profile.draws || 0;
+            const total = wins + losses + draws;
+            const wr = total > 0 ? Math.round((wins / total) * 100) : 0;
+
+            // Nome: usa username ou email
+            const nome = profile.username || session.user.email?.split('@')[0] || 'Jogador';
+            document.getElementById('avatar').textContent =
+                nome.charAt(0).toUpperCase() === nome.charAt(0) ? nome.charAt(0) : '♟';
+            document.getElementById('hero-name').textContent = nome;
+            document.getElementById('hero-username').textContent =
+                profile.email || session.user.email || '';
+            document.getElementById('hero-rank').innerHTML =
+                `⚔ ${calcRank(wins, total)}`;
+            document.getElementById('hero-since').textContent =
+                `Membro desde ${formatDate(profile.created_at || session.user.created_at)}`;
+
+            // Stats
+            document.getElementById('stat-wins').textContent = wins;
+            document.getElementById('stat-losses').textContent = losses;
+            document.getElementById('stat-draws').textContent = draws;
+            document.getElementById('stat-games').textContent = total;
+
+            // Barra de desempenho
+            document.getElementById('wr-pct').textContent =
+                `Taxa de Vitória: ${wr}%`;
+
+            if (total > 0) {
+                setTimeout(() => {
+                    document.getElementById('wr-win').style.width = `${(wins / total) * 100}%`;
+                    document.getElementById('wr-draw').style.width = `${(draws / total) * 100}%`;
+                    document.getElementById('wr-loss').style.width = `${(losses / total) * 100}%`;
+                }, 100);
+            }
+
+            // Sequência atual (se houver)
+            if (profile.win_streak > 1) {
+                document.getElementById('wr-streak').textContent =
+                    `🔥 Sequência: ${profile.win_streak} vitórias`;
+            }
+
+            // Carrega partidas recentes
+            await carregarPartidas(userId, nome);
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           CARREGAR PARTIDAS RECENTES
+        ══════════════════════════════════════════════════════════════ */
+        async function carregarPartidas(userId, nomeJogador) {
+            const { data: partidas } = await db
+                .from('partidas')
+                .select('*')
+                .or(`jogador_w.eq.${userId},jogador_b.eq.${userId}`)
+                .in('status', ['checkmate', 'stalemate', 'surrender'])
+                .order('created_at', { ascending: false })
+                .limit(10);
+
+            const list = document.getElementById('match-list');
+
+            if (!partidas || partidas.length === 0) {
+                list.innerHTML = '<div class="empty-state">Nenhuma partida finalizada ainda. Vá jogar!</div>';
+                return;
+            }
+
+            // Busca nomes dos oponentes
+            const oponenteIds = partidas.map(p =>
+                p.jogador_w === userId ? p.jogador_b : p.jogador_w
+            ).filter(Boolean);
+
+            const { data: opProfiles } = await db
+                .from('profiles')
+                .select('id, username')
+                .in('id', [...new Set(oponenteIds)]);
+
+            const opMap = {};
+            (opProfiles || []).forEach(p => { opMap[p.id] = p.username || 'Jogador'; });
+
+            list.innerHTML = partidas.map(p => {
+                const euSouBranco = p.jogador_w === userId;
+                const corSimbolo = euSouBranco ? '♔' : '♚';
+
+                // Determina resultado: winner_id salvo pelo trigger, ou deriva do status/turno
+                let resultado = 'DRAW';
+                if (p.status === 'stalemate') {
+                    resultado = 'EMP';
+                } else if (p.winner_id) {
+                    resultado = p.winner_id === userId ? 'VIT' : 'DER';
+                } else if (p.status === 'checkmate' || p.status === 'surrender') {
+                    // turno no checkmate é o perdedor (não tem jogada)
+                    const perdedor = p.turno;
+                    const euPerdedor = (perdedor === 'white' && euSouBranco) ||
+                        (perdedor === 'black' && !euSouBranco);
+                    resultado = euPerdedor ? 'DER' : 'VIT';
+                }
+
+                const rowClass = resultado === 'VIT' ? 'win-row' :
+                    resultado === 'DER' ? 'loss-row' : 'draw-row';
+
+                const opId = euSouBranco ? p.jogador_b : p.jogador_w;
+                const opNome = opMap[opId] || 'Oponente';
+
+                return `
+        <div class="match-row ${rowClass}">
+            <div class="match-result">${resultado}</div>
+            <div class="match-color">${corSimbolo}</div>
+            <div class="match-vs">
+                vs <strong>${opNome}</strong>
+                <br><small>${p.status === 'checkmate' ? 'Xeque-mate' : p.status === 'stalemate' ? 'Afogamento' : 'Desistência'}</small>
+            </div>
+            <div class="match-date">${relTime(p.created_at)}</div>
+        </div>`;
+            }).join('');
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           INIT
+        ══════════════════════════════════════════════════════════════ */
+        carregarPerfil();
+    </script>
+</body>
+
+</html>

@@ -26,12 +26,35 @@
                 return;
             }
 
-            // Somente cavalo por enquanto
+            // Passiva do Cavalo
             console.log(`[CONTEXTMENU] Cavalo? ${p.t === 'knight'}, PassivaReady? ${p.passivaReady}, Capturas: ${p.capturas}`);
-            if (p.t === 'knight' && p.passivaReady) {
+
+            // Verifica passiva do cavalo (3 capturas)
+            const knightReady = (
+                p.t === 'knight' &&
+                window.G &&
+                G.knightCapturas &&
+                p._id &&
+                (G.knightCapturas[p._id] || 0) >= 3
+            );
+
+            // Verifica passiva do peão (2 capturas)
+            const pawnReady = (
+                p.t === 'pawn' &&
+                window.G &&
+                G.pawnCapturas &&
+                p._id &&
+                (G.pawnCapturas[p._id] || 0) >= 2 &&
+                !p.superPawn
+            );
+
+            if (knightReady || pawnReady) {
                 // remove qualquer confirm existente
                 const existing = document.getElementById('passiva-confirm');
                 if (existing) existing.remove();
+
+                const isPawn = pawnReady; // flag local para saber qual texto exibir e qual ação tomar
+                const msg = isPawn ? 'Ativar Super Peão (move como Rei)?' : 'Usar passiva do Cavalo?';
 
                 // cria botão flutuante de confirmação
                 const wrapper = document.createElement('div');
@@ -51,11 +74,11 @@
                 wrapper.style.alignItems = 'center';
 
                 const txt = document.createElement('div');
-                txt.textContent = 'Usar passiva do Cavalo?';
+                txt.textContent = msg;
                 wrapper.appendChild(txt);
 
                 const btnYes = document.createElement('button');
-                btnYes.textContent = 'Usar';
+                btnYes.textContent = isPawn ? 'Ativar' : 'Usar';
                 btnYes.style.padding = '4px 8px';
                 btnYes.style.border = 'none';
                 btnYes.style.borderRadius = '4px';
@@ -96,9 +119,30 @@
                 btnYes.addEventListener('click', function (e) {
                     e.stopPropagation();
                     cleanup();
-                    // Ativa modo de seleção para troca — owner é a cor da peça
-                    G.poderAtivo = { type: 'knightSwap', source: { r, c }, owner: p.co };
-                    mostrarMensagem('Passiva disponível: clique em outra sua peça para trocar de lugar', 2000);
+
+                    if (isPawn) {
+                        // Ativa Super Peão
+                        p.superPawn = true;
+                        // Consome 2 capturas
+                        if (G.pawnCapturas[p._id]) {
+                            G.pawnCapturas[p._id] -= 2;
+                        }
+                        mostrarMensagem('Super Peão ativado! Agora move como Rei.', 2500);
+                        try { renderBoard(); } catch (e) { /* ignore */ }
+                    } else {
+                        // Ativa modo de seleção para troca — owner é a cor da peça
+                        G.poderAtivo = { type: 'knightSwap', source: { r, c }, owner: p.co };
+                        mostrarMensagem('Passiva disponível: clique em outra sua peça para trocar de lugar', 2000);
+                    }
+
+                    // Salva estado se em partida multiplayer
+                    (async function () {
+                        try {
+                            if (typeof salvarEstadoNoSupabase === 'function' && typeof partidaId !== 'undefined' && partidaId) {
+                                await salvarEstadoNoSupabase();
+                            }
+                        } catch (e) { /* ignore */ }
+                    })();
                 });
 
             } else {
@@ -136,10 +180,11 @@
                 G.board[src.r][src.c] = tgtPiece;
                 G.board[r][c] = srcPiece;
 
-                // Consumir a passiva: resetar estado do cavalo
+                // Consumir a passiva: zera o contador no G
                 try {
-                    srcPiece.passivaReady = false;
-                    srcPiece.capturas = 0;
+                    if (window.G && G.knightCapturas && srcPiece._id) {
+                        G.knightCapturas[srcPiece._id] = 0;
+                    }
                 } catch (e) { /* ignore */ }
 
                 // Registrar no histórico como uma ação especial

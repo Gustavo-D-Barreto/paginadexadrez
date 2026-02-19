@@ -15,11 +15,12 @@ const PIECE_VAL = { queen: 8, rook: 6, bishop: 6, knight: 5, pawn: 3, king: 0 };
 function buildBoard() {
     const b = Array.from({ length: 8 }, () => Array(8).fill(null));
     const back = ['rook', 'knight', 'bishop', 'queen', 'king', 'bishop', 'knight', 'rook'];
+    let _uid = 1;
     for (let c = 0; c < 8; c++) {
-        b[0][c] = { t: back[c], co: 'black' };
-        b[1][c] = { t: 'pawn', co: 'black' };
-        b[6][c] = { t: 'pawn', co: 'white' };
-        b[7][c] = { t: back[c], co: 'white' };
+        b[0][c] = { t: back[c], co: 'black', _id: _uid++ };
+        b[1][c] = { t: 'pawn', co: 'black', _id: _uid++ };
+        b[6][c] = { t: 'pawn', co: 'white', _id: _uid++ };
+        b[7][c] = { t: back[c], co: 'white', _id: _uid++ };
     }
     return b;
 }
@@ -89,16 +90,27 @@ function pseudoMoves(b, r, c, ep, cas) {
     };
 
     if (t === 'pawn') {
-        const startRow = co === 'white' ? 6 : 1;
-        if (OB(r + dir, c) && !b[r + dir][c]) {
-            moves.push({ r: r + dir, c });
-            if (r === startRow && !b[r + 2 * dir][c]) moves.push({ r: r + 2 * dir, c });
-        }
-        for (const dc of [-1, 1]) {
-            const nr = r + dir, nc = c + dc;
-            if (!OB(nr, nc)) continue;
-            if (b[nr][nc]?.co === enemy) moves.push({ r: nr, c: nc });
-            if (ep && ep.r === nr && ep.c === nc) moves.push({ r: nr, c: nc, ep: true });
+        // Se for Super Peão (ativado pela passiva), move como Rei
+        if (p.superPawn) {
+            for (const [dr, dc] of [[0, 1], [0, -1], [1, 0], [-1, 0], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+                const nr = r + dr, nc = c + dc;
+                if (OB(nr, nc) && b[nr][nc]?.co !== co && b[nr][nc]?.t !== 'hole') moves.push({ r: nr, c: nc });
+            }
+        } else {
+            // Movimento normal de peão
+            const startRow = co === 'white' ? 6 : 1;
+            // Movimento normal para frente (sem captura)
+            if (OB(r + dir, c) && !b[r + dir][c]) {
+                moves.push({ r: r + dir, c });
+                if (r === startRow && !b[r + 2 * dir][c]) moves.push({ r: r + 2 * dir, c });
+            }
+            // Capturas diagonais
+            for (const dc of [-1, 1]) {
+                const nr = r + dir, nc = c + dc;
+                if (!OB(nr, nc)) continue;
+                if (b[nr][nc]?.co === enemy) moves.push({ r: nr, c: nc });
+                if (ep && ep.r === nr && ep.c === nc) moves.push({ r: nr, c: nc, ep: true });
+            }
         }
     }
     else if (t === 'knight') {
@@ -134,12 +146,22 @@ function pseudoMoves(b, r, c, ep, cas) {
 function applyMove(b, fr, fc, tr, tc, flags = {}) {
     const nb = cloneB(b);
     const piece = nb[fr][fc];
+    // Preserva o _id da peça original ou gera um novo se necessário (para não quebrar passivas)
+    const originalId = piece._id || (Math.random() * 1000000 | 0);
+
     nb[tr][tc] = piece;
     nb[fr][fc] = null;
     if (flags.ep) nb[fr][tc] = null;                           // captura en passant
     if (flags.castle === 'k') { nb[tr][5] = nb[tr][7]; nb[tr][7] = null; } // roque curto
     if (flags.castle === 'q') { nb[tr][3] = nb[tr][0]; nb[tr][0] = null; } // roque longo
-    if (flags.promo) nb[tr][tc] = { t: flags.promo, co: piece.co }; // promoção
+
+    // Se houver promoção, cria a nova peça mas tenta manter o ID "de alma" ou gera novo
+    if (flags.promo) {
+        nb[tr][tc] = { t: flags.promo, co: piece.co, _id: originalId };
+    } else {
+        // Garante que a peça movida tenha _id
+        if (nb[tr][tc]) nb[tr][tc]._id = originalId;
+    }
     return nb;
 }
 

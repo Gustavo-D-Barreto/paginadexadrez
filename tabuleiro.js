@@ -17,7 +17,7 @@ const RANKS = ['8', '7', '6', '5', '4', '3', '2', '1'];
 
 // ─── ESTADO GLOBAL DO JOGO ──────────────────────────────────────────────────
 
-let G = {}; // Estado global da partida
+var G = {}; // Estado global da partida
 
 /**
  * Inicializa o estado do jogo
@@ -47,6 +47,8 @@ function initGame() {
         ruby: null,                    // Posição atual do rubi {r, c} ou null
         poderAtivo: null,              // Poder aguardando ativação {tipo, cor} ou null
         frozen: [],                    // Lista de congelamentos ativos: {col, color, turns}
+        knightCapturas: {},            // Rastreia capturas por cavalo: { [_id]: número }
+        pawnCapturas: {},              // Rastreia capturas por peão: { [_id]: número }
     };
 }
 
@@ -221,7 +223,7 @@ function createSquare(row, col, kingInCheck) {
             },
             black: {
                 pawn: 'piece-black-pawn',
-                queen:'piece-black-queen'
+                queen: 'piece-black-queen'
             }
         };
 
@@ -250,6 +252,13 @@ function createSquare(row, col, kingInCheck) {
             if (re.defender && re.defender.r === row && re.defender.c === col) {
                 pieceEl.classList.add('rebater-defended');
             }
+        }
+
+        // ─── Visual: Passiva Pronta (Glow) ───
+        if (piece.t === 'knight' && G.knightCapturas && piece._id && G.knightCapturas[piece._id] >= 3) {
+            pieceEl.classList.add('passive-ready');
+        } else if (piece.t === 'pawn' && G.pawnCapturas && piece._id && G.pawnCapturas[piece._id] >= 2 && !piece.superPawn) {
+            pieceEl.classList.add('passive-ready');
         }
 
         square.appendChild(pieceEl);
@@ -662,20 +671,28 @@ async function doMove(fr, fc, tr, tc, flags = {}, promo = null) {
     if (capturedPiece) {
         G.captured[G.turn] = G.captured[G.turn] || [];
         G.captured[G.turn].push(capturedPiece);
-        // Conta capturas para a peça que atacou (usar o objeto que está em G.board após applyMove)
+        // ── Passiva do Cavalo: rastreia capturas por ID único em G.knightCapturas ──
         try {
             const movedPiece = G.board[tr] && G.board[tr][tc] ? G.board[tr][tc] : null;
-            if (movedPiece) {
-                movedPiece.capturas = (movedPiece.capturas || 0) + 1;
-                console.log(`[CAPTURA] ${movedPiece.t} em (${tr},${tc}) capturas: ${movedPiece.capturas}`, movedPiece);
-                // Se for cavalo e alcançou 3 capturas, desbloqueia a passiva
-                if (movedPiece.t === 'knight' && movedPiece.capturas >= 3) {
-                    movedPiece.passivaReady = true;
-                    console.log(`[PASSIVA READY] Cavalo desbloqueou passiva!`, movedPiece);
-                    mostrarMensagem('✦ Passiva do Cavalo desbloqueada! Clique com o botão direito para ativar.', 2000);
+            // Passiva do Cavalo
+            if (movedPiece && movedPiece.t === 'knight' && movedPiece._id) {
+                G.knightCapturas = G.knightCapturas || {};
+                G.knightCapturas[movedPiece._id] = (G.knightCapturas[movedPiece._id] || 0) + 1;
+                if (G.knightCapturas[movedPiece._id] === 3) {
+                    mostrarMensagem('♞ Passiva do Cavalo desbloqueada! Clique com o botão direito para ativar.', 3000);
                 }
             }
-        } catch (e) { /* ignora se movedPiece indefinido */ }
+            // Passiva do Peão
+            if (movedPiece && movedPiece.t === 'pawn' && movedPiece._id) {
+                G.pawnCapturas = G.pawnCapturas || {};
+                G.pawnCapturas[movedPiece._id] = (G.pawnCapturas[movedPiece._id] || 0) + 1;
+                if (G.pawnCapturas[movedPiece._id] === 2) {
+                    mostrarMensagem('♟ Passiva do Peão disponível! Clique com direito para ativar Movimento Real.', 3000);
+                }
+            }
+        } catch (e) { /* ignora */ }
+
+        // Se benção ativa, concede pontos extras equivalentes ao valor da peça (dobrando)
         // Se benção ativa, concede pontos extras equivalentes ao valor da peça (dobrando)
         try {
             if (typeof lojaState !== 'undefined' && lojaState.bencao && lojaState.bencao[G.turn] > 0) {
@@ -761,7 +778,7 @@ function decrementarBuracos() {
                 if (lojaState.bencao[cor] > 0) {
                     lojaState.bencao[cor]--;
                     if (lojaState.bencao[cor] === 0) {
-                        mostrarMensagem(`✶ Benção de ${cor === 'white' ? 'Brancas' : 'Pretas'} acabou!` , 2000);
+                        mostrarMensagem(`✶ Benção de ${cor === 'white' ? 'Brancas' : 'Pretas'} acabou!`, 2000);
                         renderLoja();
                     }
                 }
@@ -818,7 +835,7 @@ async function ativarCongelar(col) {
     // 4 rodadas = 8 meios-movimentos
     G.frozen.push({ col: col, color: alvo, turns: 8 });
 
-    mostrarMensagem(`✦ Coluna ${FILES[col]} congelada para ${alvo} por 4 rodadas!` , 2500);
+    mostrarMensagem(`✦ Coluna ${FILES[col]} congelada para ${alvo} por 4 rodadas!`, 2500);
 
     // Consome a vez do comprador (comportamento consistente com outros poderes)
     await passarVezPorPoder('Congelar');
@@ -940,8 +957,12 @@ async function ativarDuplicar(row, col) {
     for (const pos of candidates) {
         // não pode colocar sobre peça nem sobre o rubi; pode sobre buraco? não — buraco é célula especial
         if (!G.board[pos.r][pos.c] && !(G.ruby?.r === pos.r && G.ruby?.c === pos.c)) {
-            // cria cópia simples da peça (sem flags especiais como rebater)
-            G.board[pos.r][pos.c] = { t: piece.t, co: piece.co };
+            // cria cópia simples da peça (sem flags especiais como rebater), mas com ID único
+            G.board[pos.r][pos.c] = {
+                t: piece.t,
+                co: piece.co,
+                _id: (Math.random() * 1000000 | 0)
+            };
             const pretty = piece.t[0].toUpperCase() + piece.t.slice(1);
             mostrarMensagem(`❋ ${pretty} duplicada!`, 1800);
             placed = true;
@@ -1002,7 +1023,7 @@ async function ativarCacar(row, col) {
     // encontra casas adjacentes livres à peça escolhida
     const adjOffsets = [
         [-1, -1], [-1, 0], [-1, 1],
-        [0, -1], /* [0,0] */ [0, 1],
+        [0, -1], /* [0,0] */[0, 1],
         [1, -1], [1, 0], [1, 1]
     ];
 
@@ -1012,7 +1033,7 @@ async function ativarCacar(row, col) {
         const nc = col + off[1];
         if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
             // permite puxar para casas vazias ou para buraco (caso a peça caia)
-            if (( !G.board[nr][nc] || (G.board[nr][nc] && G.board[nr][nc].t === 'hole') )
+            if ((!G.board[nr][nc] || (G.board[nr][nc] && G.board[nr][nc].t === 'hole'))
                 && !(G.ruby?.r === nr && G.ruby?.c === nc)) {
                 candidates.push({ r: nr, c: nc });
             }
@@ -1028,8 +1049,8 @@ async function ativarCacar(row, col) {
     candidates.sort((a, b) => (
         Math.abs(a.r - target.r) + Math.abs(a.c - target.c)
     ) - (
-        Math.abs(b.r - target.r) + Math.abs(b.c - target.c)
-    ));
+            Math.abs(b.r - target.r) + Math.abs(b.c - target.c)
+        ));
 
     const dest = candidates[0];
 
