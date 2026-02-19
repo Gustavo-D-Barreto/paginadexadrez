@@ -24,40 +24,40 @@ const PODERES_LISTA = [
         id: 'duplicar',
         nome: 'Duplicar',
         custo: 4,
-        icone: '❋',
+        icone: '✨',
         cor: '#4ade80',
-        desc: 'Gera uma cópia espectral de uma peça aliada'
+        desc: 'Gera uma cópia espectral de uma peça aliada (exceto Rei e Rainha)'
     },
     {
         id: 'cacar',
         nome: 'Caçar',
         custo: 7,
-        icone: '⚡',
-        cor: '#f0d080',
-        desc: ''
+        icone: '🂡',
+        cor: '#dd291c',
+        desc: 'voce puxa a peça inimiga mais próxima para uma casa adjacente à sua posição atual,'
     },
     {
-        id: 'manipular',
-        nome: 'Manipular',
+        id: 'congelar',
+        nome: 'Congelar',
         custo: 8,
-        icone: '✦',
-        cor: '#c084fc',
-        desc: 'Toma o controle de uma peça inimiga por um turno'
+        icone: '❋',
+        cor: '#1daed3',
+        desc: 'o jogador escolhe uma coluna vertical para congelar por 4 rodadas, impedindo movimentos inimigo'
     },
     {
         id: 'rebater',
         nome: 'Rebater',
         custo: 9,
-        icone: '⚔',
-        cor: '#f87171',
+        icone: '𓂀',
+        cor: '#1d8b30',
         desc: 'cria um escudo protetor em uma peça aliada, evitando sua morte uma vez'
     },
     {
         id: 'bencao',
         nome: 'Benção',
         custo: 7,
-        icone: '◎',
-        cor: '#34d399',
+        icone: '☯',
+        cor: '#fcfcfc',
         desc: 'Dobra pontos por capturas e rubis por 6 turnos'
     },
 ];
@@ -186,6 +186,18 @@ async function comprarPoder(ofertaIdx) {
         return;
     }
 
+    // ── Poder 'congelar' (escolha de coluna) ──
+    if (poder.id === 'congelar') {
+        // interação: jogador escolhe uma coluna vertical para congelar por 4 rodadas
+        // impede que o inimigo mova peças que estejam nessa coluna
+        lojaState.poderesAdquiridos[G.turn].push({ ...poder });
+        G.poderAtivo = { tipo: 'congelar', cor: G.turn };
+        mostrarMensagem('✦ Escolha uma coluna (clique em qualquer casa dessa coluna) para Congelar por 4 rodadas!', 6000);
+        renderLoja();
+        renderBoard();
+        return;
+    }
+
     // ── Poder 'benção' (ativa efeito de pontos dobrados por 6 turnos) ──
     if (poder.id === 'bencao') {
         // Ativa imediatamente (consumível no momento da compra)
@@ -199,10 +211,21 @@ async function comprarPoder(ofertaIdx) {
 
     // ── Poder 'duplicar' (duplica um peão aliado) ──
     if (poder.id === 'duplicar') {
-        // Registra a aquisição e entra no modo de seleção de peão aliada
+        // Registra a aquisição e entra no modo de seleção de peça aliada
         lojaState.poderesAdquiridos[G.turn].push({ ...poder });
         G.poderAtivo = { tipo: 'duplicar', cor: G.turn };
-        mostrarMensagem('❋ Escolha um dos seus peões para duplicar!', 6000);
+        mostrarMensagem('❋ Escolha uma de suas peças (exceto Rei e Rainha) para duplicar!', 6000);
+        renderLoja();
+        renderBoard();
+        return;
+    }
+
+    // ── Poder 'cacar' (puxar peça inimiga mais próxima na mesma coluna) ──
+    if (poder.id === 'cacar') {
+        // Registra a aquisição e entra no modo de seleção de uma peça aliada
+        lojaState.poderesAdquiridos[G.turn].push({ ...poder });
+        G.poderAtivo = { tipo: 'cacar', cor: G.turn };
+        mostrarMensagem('⚡ Escolha uma de suas peças para puxar o inimigo mais próximo na mesma coluna (não pode puxar o Rei).', 7000);
         renderLoja();
         renderBoard();
         return;

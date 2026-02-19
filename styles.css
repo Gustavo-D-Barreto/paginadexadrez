@@ -619,6 +619,51 @@ button:active {
     animation: check-pulse 1s ease-in-out infinite;
 }
 
+/* Zona perigosa: marca 2x2 em vermelho com contador de rodadas */
+.square.danger-zone {
+    position: relative;
+    background: linear-gradient(180deg, rgba(180,30,40,0.14), rgba(200,30,30,0.12)) !important;
+    box-shadow: inset 0 0 0 2px rgba(200,40,40,0.9), 0 0 18px rgba(200,40,40,0.18);
+}
+
+.square.danger-zone::after {
+    content: attr(data-danger-rounds);
+    position: absolute;
+    right: 6px;
+    top: 6px;
+    background: rgba(200,40,40,0.95);
+    color: #fff;
+    font-size: 12px;
+    padding: 2px 6px;
+    border-radius: 10px;
+    box-shadow: 0 0 6px rgba(200,40,40,0.45);
+}
+
+/* Animação de morte: girar e encolher até desaparecer */
+.piece.die-anim {
+    transform-origin: center center;
+    animation: die-spin-shrink 1400ms cubic-bezier(.2,.9,.2,1) forwards;
+    z-index: 50;
+    position: relative;
+}
+
+@keyframes die-spin-shrink {
+    0% {
+        transform: rotate(0deg) scale(1);
+        opacity: 1;
+        filter: drop-shadow(0 2px 4px rgba(0,0,0,0.6));
+    }
+    60% {
+        transform: rotate(360deg) scale(0.5);
+        opacity: 0.85;
+    }
+    100% {
+        transform: rotate(720deg) scale(0);
+        opacity: 0;
+        filter: blur(2px);
+    }
+}
+
 @keyframes check-pulse {
 
     0%,
@@ -766,7 +811,7 @@ button:active {
     align-items: center;
     pointer-events: none;
     transform-origin: center;
-    transform: scale(1.5); /* Aumenta em 30% o tamanho visual */
+    transform: scale(1.7); /* Aumenta em 30% o tamanho visual */
     z-index: 10; /* Opcional: garante que ela fique por cima de outras peças ao crescer */
 }
 

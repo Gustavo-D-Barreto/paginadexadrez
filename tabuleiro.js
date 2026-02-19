@@ -41,8 +41,12 @@ function initGame() {
             white: [],
             black: []
         },
+        // Zona perigosa: quando não nulo contém {r, c, turns}
+        // `r`,`c` = canto superior-esquerdo da área 2x2; `turns` = meios-movimentos restantes
+        dangerZone: null,
         ruby: null,                    // Posição atual do rubi {r, c} ou null
         poderAtivo: null,              // Poder aguardando ativação {tipo, cor} ou null
+        frozen: [],                    // Lista de congelamentos ativos: {col, color, turns}
     };
 }
 
@@ -176,8 +180,25 @@ function createSquare(row, col, kingInCheck) {
 
     // Destaque: modo seleção de duplicar (peões aliados selecionáveis)
     const podeDuplicar = G.poderAtivo?.tipo === 'duplicar' && G.poderAtivo.cor === G.turn;
-    if (podeDuplicar && piece && piece.co === G.turn && piece.t === 'pawn') {
+    if (podeDuplicar && piece && piece.co === G.turn && piece.t !== 'king' && piece.t !== 'queen') {
         square.classList.add('duplicar-selectable');
+    }
+
+    // Destaque: coluna congelada (efeito visual azul) — mostra sombra e badge de turnos
+    const frozenEntry = G.frozen?.find(f => f.col === col && f.turns > 0);
+    if (frozenEntry) {
+        square.classList.add('frozen-column');
+        // mostra rodadas restantes (cada 2 meios-movimentos = 1 rodada)
+        square.dataset.frozenTurns = Math.ceil(frozenEntry.turns / 2);
+    }
+
+    // Destaque: zona perigosa (marca em vermelho enquanto estiver ativa)
+    if (isInDangerZone(row, col)) {
+        square.classList.add('danger-zone');
+        if (G.dangerZone && typeof G.dangerZone.turns === 'number') {
+            const roundsLeft = Math.ceil(G.dangerZone.turns / 2);
+            square.dataset.dangerRounds = roundsLeft;
+        }
     }
 
     // Renderiza a peça na casa (ou o buraco)
@@ -196,7 +217,7 @@ function createSquare(row, col, kingInCheck) {
                 pawn: 'piece-white-pawn',
                 rook: 'piece-white-rook',
                 knight: 'piece-white-knight',
-                quenn: 'piece-white-queen'
+                queen: 'piece-white-queen'
             },
             black: {
                 pawn: 'piece-black-pawn',
@@ -305,11 +326,33 @@ function handleSquareClick(row, col) {
     // Modo seleção de duplicar: escolhe um peão aliado para duplicar
     if (G.poderAtivo?.tipo === 'duplicar') {
         const clickedPiece = G.board[row][col];
-        if (!clickedPiece || clickedPiece.co !== G.turn || clickedPiece.t !== 'pawn') {
-            mostrarMensagem('❋ Clique em um de seus peões para duplicar!');
+        if (!clickedPiece || clickedPiece.co !== G.turn || clickedPiece.t === 'king' || clickedPiece.t === 'queen') {
+            mostrarMensagem('❋ Clique em uma de suas peças (exceto Rei e Rainha) para duplicar!');
             return;
         }
         ativarDuplicar(row, col);
+        return;
+    }
+
+    // Modo seleção de cacar: escolhe uma peça aliada que irá puxar o inimigo mais próximo na mesma coluna
+    if (G.poderAtivo?.tipo === 'cacar') {
+        const clickedPiece = G.board[row][col];
+        if (!clickedPiece || clickedPiece.co !== G.turn) {
+            mostrarMensagem('⚡ Clique em uma de suas peças para usar Caçar!');
+            return;
+        }
+        ativarCacar(row, col);
+        return;
+    }
+
+    // Modo seleção de congelar: escolhe uma coluna inteira (qualquer casa da coluna)
+    if (G.poderAtivo?.tipo === 'congelar') {
+        // apenas o comprador pode ativar na sua vez
+        if (G.poderAtivo.cor !== G.turn) {
+            mostrarMensagem('✦ Apenas o comprador pode escolher a coluna agora.');
+            return;
+        }
+        ativarCongelar(col);
         return;
     }
 
@@ -351,6 +394,11 @@ function handleSquareClick(row, col) {
 
         // Clicou em outra peça própria - reseleciona
         if (clickedPiece?.co === G.turn) {
+            // bloqueia se a peça está congelada nesta coluna
+            if (G.frozen?.some(f => f.color === G.turn && f.col === col && f.turns > 0)) {
+                mostrarMensagem('✦ Esta peça está congelada nesta coluna e não pode ser movida.');
+                return;
+            }
             G.sel = { r: row, c: col };
             G.legal = legalMoves(G.board, row, col, G.ep, G.cas);
             renderBoard();
@@ -366,6 +414,11 @@ function handleSquareClick(row, col) {
 
     // Nenhuma casa selecionada - seleciona a peça se for do turno correto
     if (clickedPiece?.co === G.turn) {
+        // bloqueia seleção se a peça estiver congelada nessa coluna
+        if (G.frozen?.some(f => f.color === G.turn && f.col === col && f.turns > 0)) {
+            mostrarMensagem('✦ Esta peça está congelada nesta coluna e não pode ser movida.');
+            return;
+        }
         G.sel = { r: row, c: col };
         G.legal = legalMoves(G.board, row, col, G.ep, G.cas);
         renderBoard();
@@ -388,6 +441,83 @@ function spawnRuby() {
     if (vazias.length === 0) return;
     G.ruby = vazias[Math.floor(Math.random() * vazias.length)];
     mostrarMensagem('💎 Um Rubi apareceu no tabuleiro!');
+}
+
+/**
+ * Gera uma zona perigosa aleatória 2x2 dentro das células a3..h6
+ * A zona dura 4 meios-movimentos (2 rodadas) antes de detonar
+ */
+function spawnDangerZone() {
+    if (G.dangerZone) return; // já existe
+    // rows correspondentes a ranks 6..3 -> índices 2..5, então canto superior pode ir de 2..4
+    const rStart = 2 + Math.floor(Math.random() * 3); // 2,3 ou 4
+    const cStart = Math.floor(Math.random() * 7); // 0..6 (para caber 2x2)
+    G.dangerZone = { r: rStart, c: cStart, turns: 4 };
+    mostrarMensagem('☠ Zona perigosa surgirá aqui por 2 rodadas!', 2500);
+    renderBoard();
+}
+
+/**
+ * Remove todas as peças na zona perigosa e limpa o estado
+ */
+function detonateDangerZone() {
+    if (!G.dangerZone) return;
+    const { r, c } = G.dangerZone;
+    const toKill = [];
+    for (let rr = r; rr <= r + 1; rr++) {
+        for (let cc = c; cc <= c + 1; cc++) {
+            if (G.board[rr] && G.board[rr][cc] && G.board[rr][cc].t !== 'hole') {
+                toKill.push({ r: rr, c: cc });
+            }
+        }
+    }
+
+    // Se não houver peças, limpa imediatamente
+    if (toKill.length === 0) {
+        G.dangerZone = null;
+        mostrarMensagem('☠ Zona perigosa detonou! Nenhuma peça presente.', 1800);
+        renderBoard();
+        return;
+    }
+
+    // Anima as peças (girar e encolher) antes de removê-las do estado
+    const boardEl = document.getElementById('board');
+    const ANIM_MS = 1400;
+    toKill.forEach(pos => {
+        try {
+            const sq = boardEl.querySelector(`.square[data-row="${pos.r}"][data-col="${pos.c}"]`);
+            const pieceEl = sq?.querySelector('.piece');
+            if (pieceEl) {
+                // adiciona classe que dispara a animação CSS
+                pieceEl.classList.add('die-anim');
+                // força repaint
+                void pieceEl.offsetWidth;
+            }
+        } catch (e) { /* ignore DOM issues */ }
+    });
+
+    // Após a animação, remove as peças do tabuleiro e rerender
+    setTimeout(() => {
+        let killed = 0;
+        for (const pos of toKill) {
+            if (G.board[pos.r] && G.board[pos.r][pos.c] && G.board[pos.r][pos.c].t !== 'hole') {
+                G.board[pos.r][pos.c] = null;
+                killed++;
+            }
+        }
+        G.dangerZone = null;
+        if (killed > 0) mostrarMensagem(`☠ Zona perigosa detonou! ${killed} peça(s) foram destruídas.`, 2600);
+        renderBoard();
+    }, ANIM_MS);
+}
+
+/**
+ * Retorna true se a casa (row,col) está dentro da zona perigosa marcada
+ */
+function isInDangerZone(row, col) {
+    if (!G.dangerZone) return false;
+    const { r, c } = G.dangerZone;
+    return row >= r && row <= r + 1 && col >= c && col <= c + 1;
 }
 
 // ─── EXECUÇÃO DE MOVIMENTOS ─────────────────────────────────────────────────
@@ -452,6 +582,8 @@ async function doMove(fr, fc, tr, tc, flags = {}, promo = null) {
         decrementarBuracos();
         const meiosMovimentos = G.history.length;
         if (meiosMovimentos > 0 && meiosMovimentos % 6 === 0 && !G.ruby) spawnRuby();
+        // A cada 8 rodadas (16 meios-movimentos) spawna uma zona perigosa
+        if (meiosMovimentos > 0 && meiosMovimentos % 16 === 0 && !G.dangerZone) spawnDangerZone();
 
         const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
         const isInCheck = inCheck(G.board, G.turn);
@@ -469,6 +601,47 @@ async function doMove(fr, fc, tr, tc, flags = {}, promo = null) {
             G._recentRebaterEffect = null;
             renderBoard();
         }, 800);
+
+        if (typeof salvarEstadoNoSupabase === 'function' && partidaId) {
+            await salvarEstadoNoSupabase();
+        }
+        return;
+    }
+
+    // --- Buraco: se o destino for um buraco, a peça que se move morre e é capturada ---
+    if (capturedPiece && capturedPiece.t === 'hole') {
+        // movingPiece caiu no buraco — é capturado pelo jogador que realizou o movimento (G.turn)
+        G.board[fr][fc] = null; // remove mover
+        G.captured[G.turn] = G.captured[G.turn] || [];
+        G.captured[G.turn].push(movingPiece);
+        mostrarMensagem('◼ Peça caiu no buraco e foi capturada!', 1400);
+
+        // Registro e efeitos similares a uma captura comum
+        G.lastMove = { fr, fc, tr, tc };
+        G.history.push({ move: algebraicNotation + ' (caiu no buraco)', color: G.turn });
+
+        // Sem en-passant possível após isso
+        G.ep = null;
+
+        // Troca o turno (o jogador gastou sua jogada)
+        G.turn = G.turn === 'white' ? 'black' : 'white';
+
+        // Efeitos pós-movimento
+        decrementarBuracos();
+        const meiosMovimentos = G.history.length;
+        if (meiosMovimentos > 0 && meiosMovimentos % 6 === 0 && !G.ruby) spawnRuby();
+        if (meiosMovimentos > 0 && meiosMovimentos % 16 === 0 && !G.dangerZone) spawnDangerZone();
+
+        const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
+        const isInCheck = inCheck(G.board, G.turn);
+        G.status = !hasLegalMoves ? (isInCheck ? 'checkmate' : 'stalemate') : (isInCheck ? 'check' : 'playing');
+
+        // Limpa seleção e poder ativo
+        G.sel = null;
+        G.legal = [];
+        G.poderAtivo = null;
+
+        renderBoard();
 
         if (typeof salvarEstadoNoSupabase === 'function' && partidaId) {
             await salvarEstadoNoSupabase();
@@ -512,6 +685,8 @@ async function doMove(fr, fc, tr, tc, flags = {}, promo = null) {
     if (meiosMovimentos > 0 && meiosMovimentos % 6 === 0 && !G.ruby) {
         spawnRuby();
     }
+    // A cada 8 rodadas (16 meios-movimentos) spawna uma zona perigosa
+    if (meiosMovimentos > 0 && meiosMovimentos % 16 === 0 && !G.dangerZone) spawnDangerZone();
 
     // Verifica status do jogo
     const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
@@ -567,6 +742,60 @@ function decrementarBuracos() {
             });
         }
     } catch (e) { /* ignore */ }
+
+    // Decrementa duração de congelamentos (G.frozen)
+    try {
+        if (G.frozen && Array.isArray(G.frozen) && G.frozen.length > 0) {
+            for (let i = G.frozen.length - 1; i >= 0; i--) {
+                G.frozen[i].turns--;
+                if (G.frozen[i].turns <= 0) {
+                    const col = G.frozen[i].col;
+                    const clr = G.frozen[i].color === 'white' ? 'Brancas' : 'Pretas';
+                    mostrarMensagem(`✦ Congelamento na coluna ${FILES[col]} das ${clr} terminou!`, 1800);
+                    G.frozen.splice(i, 1);
+                }
+            }
+        }
+    } catch (e) { /* ignore */ }
+
+    // Decrementa contador da zona perigosa (se houver)
+    try {
+        if (G.dangerZone) {
+            G.dangerZone.turns--;
+            if (G.dangerZone.turns <= 0) {
+                detonateDangerZone();
+            }
+        }
+    } catch (e) { /* ignore */ }
+}
+
+/**
+ * Ativa o poder 'congelar' para a coluna especificada.
+ * @param {number} col - coluna 0-7 escolhida pelo comprador
+ */
+async function ativarCongelar(col) {
+    if (typeof col !== 'number' || col < 0 || col > 7) {
+        mostrarMensagem('✦ Coluna inválida para congelamento.');
+        return;
+    }
+
+    if (!G.poderAtivo || G.poderAtivo.tipo !== 'congelar') {
+        mostrarMensagem('✦ Nenhum poder de congelar ativo.');
+        return;
+    }
+
+    // alvo é o inimigo do comprador
+    const comprador = G.poderAtivo.cor;
+    const alvo = comprador === 'white' ? 'black' : 'white';
+
+    G.frozen = G.frozen || [];
+    // 4 rodadas = 8 meios-movimentos
+    G.frozen.push({ col: col, color: alvo, turns: 8 });
+
+    mostrarMensagem(`✦ Coluna ${FILES[col]} congelada para ${alvo} por 4 rodadas!` , 2500);
+
+    // Consome a vez do comprador (comportamento consistente com outros poderes)
+    await passarVezPorPoder('Congelar');
 }
 
 /**
@@ -584,6 +813,8 @@ async function passarVezPorPoder(descricao = 'Poder') {
     if (meiosMovimentos > 0 && meiosMovimentos % 6 === 0 && !G.ruby) {
         spawnRuby();
     }
+    // A cada 8 rodadas (16 meios-movimentos) spawna uma zona perigosa
+    if (meiosMovimentos > 0 && meiosMovimentos % 16 === 0 && !G.dangerZone) spawnDangerZone();
 
     const hasLegalMoves = anyLegal(G.board, G.turn, G.ep, G.cas);
     const isInCheck = inCheck(G.board, G.turn);
@@ -646,28 +877,47 @@ async function ativarRebater(row, col) {
  */
 async function ativarDuplicar(row, col) {
     const piece = G.board[row][col];
-    if (!piece || piece.co !== G.turn || piece.t !== 'pawn') {
-        mostrarMensagem('❋ Selecione um peão seu válido!');
+    if (!piece || piece.co !== G.turn) {
+        mostrarMensagem('❋ Selecione uma peça sua válida!');
+        return;
+    }
+    if (piece.t === 'king' || piece.t === 'queen') {
+        mostrarMensagem('❋ Não é possível duplicar Rei ou Rainha!');
         return;
     }
 
-    const dir = piece.co === 'white' ? -1 : 1; // direção para frente
-    const frontR = row + dir;
-    const backR = row - dir;
-
-    // Prioridade: frente, atrás, esquerda, direita
+    // Gera lista de casas candidatas para colocar a cópia.
+    // Para peões damos preferência por frente/atrás; para as outras peças, preferência lateral e adjacentes.
     const candidates = [];
-    if (frontR >= 0 && frontR < 8) candidates.push({ r: frontR, c: col });
-    if (backR >= 0 && backR < 8) candidates.push({ r: backR, c: col });
-    if (col - 1 >= 0) candidates.push({ r: row, c: col - 1 });
-    if (col + 1 < 8) candidates.push({ r: row, c: col + 1 });
+    if (piece.t === 'pawn') {
+        const dir = piece.co === 'white' ? -1 : 1;
+        const frontR = row + dir;
+        const backR = row - dir;
+        if (frontR >= 0 && frontR < 8) candidates.push({ r: frontR, c: col });
+        if (backR >= 0 && backR < 8) candidates.push({ r: backR, c: col });
+        if (col - 1 >= 0) candidates.push({ r: row, c: col - 1 });
+        if (col + 1 < 8) candidates.push({ r: row, c: col + 1 });
+    } else {
+        // laterais, frente/atrás, e diagonais
+        if (col - 1 >= 0) candidates.push({ r: row, c: col - 1 });
+        if (col + 1 < 8) candidates.push({ r: row, c: col + 1 });
+        if (row - 1 >= 0) candidates.push({ r: row - 1, c: col });
+        if (row + 1 < 8) candidates.push({ r: row + 1, c: col });
+        // diagonais
+        if (row - 1 >= 0 && col - 1 >= 0) candidates.push({ r: row - 1, c: col - 1 });
+        if (row - 1 >= 0 && col + 1 < 8) candidates.push({ r: row - 1, c: col + 1 });
+        if (row + 1 < 8 && col - 1 >= 0) candidates.push({ r: row + 1, c: col - 1 });
+        if (row + 1 < 8 && col + 1 < 8) candidates.push({ r: row + 1, c: col + 1 });
+    }
 
     let placed = false;
     for (const pos of candidates) {
-        // não pode colocar sobre peça nem sobre o rubi
+        // não pode colocar sobre peça nem sobre o rubi; pode sobre buraco? não — buraco é célula especial
         if (!G.board[pos.r][pos.c] && !(G.ruby?.r === pos.r && G.ruby?.c === pos.c)) {
-            G.board[pos.r][pos.c] = { t: 'pawn', co: piece.co };
-            mostrarMensagem('❋ Peão duplicado!', 1800);
+            // cria cópia simples da peça (sem flags especiais como rebater)
+            G.board[pos.r][pos.c] = { t: piece.t, co: piece.co };
+            const pretty = piece.t[0].toUpperCase() + piece.t.slice(1);
+            mostrarMensagem(`❋ ${pretty} duplicada!`, 1800);
             placed = true;
             break;
         }
@@ -675,10 +925,173 @@ async function ativarDuplicar(row, col) {
 
     if (!placed) {
         mostrarMensagem('❋ É impossível criar a duplicada');
-        return; // mantém o modo de seleção para tentar outro peão
+        return; // mantém o modo de seleção para tentar outra peça
     }
 
     await passarVezPorPoder('Duplicar');
+}
+
+/**
+ * Ativa o poder 'cacar': a peça aliada escolhida puxa o inimigo mais próximo
+ * na mesma coluna para uma casa adjacente vazia da peça escolhida.
+ * Não pode puxar o rei inimigo.
+ */
+async function ativarCacar(row, col) {
+    if (!G.poderAtivo || G.poderAtivo.tipo !== 'cacar') {
+        mostrarMensagem('⚡ Nenhum poder Caçar ativo.');
+        return;
+    }
+
+    const comprador = G.poderAtivo.cor;
+    if (comprador !== G.turn) {
+        mostrarMensagem('⚡ Apenas o comprador pode ativar Caçar agora.');
+        return;
+    }
+
+    const chosen = G.board[row][col];
+    if (!chosen || chosen.co !== G.turn) {
+        mostrarMensagem('⚡ Selecione uma de suas peças.');
+        return;
+    }
+
+    const colIdx = col;
+    // procura peças inimigas na mesma coluna, excluindo rei
+    const enemies = [];
+    for (let r = 0; r < 8; r++) {
+        const p = G.board[r][colIdx];
+        if (p && p.co && p.co !== G.turn && p.t !== 'king') {
+            enemies.push({ r, c: colIdx, piece: p });
+        }
+    }
+
+    if (enemies.length === 0) {
+        mostrarMensagem('⚡ Nenhum inimigo válido nesta coluna para puxar!');
+        return;
+    }
+
+    // escolhe o inimigo mais próximo em distância vertical
+    enemies.sort((a, b) => Math.abs(a.r - row) - Math.abs(b.r - row));
+    const target = enemies[0];
+
+    // encontra casas adjacentes livres à peça escolhida
+    const adjOffsets = [
+        [-1, -1], [-1, 0], [-1, 1],
+        [0, -1], /* [0,0] */ [0, 1],
+        [1, -1], [1, 0], [1, 1]
+    ];
+
+    const candidates = [];
+    for (const off of adjOffsets) {
+        const nr = row + off[0];
+        const nc = col + off[1];
+        if (nr >= 0 && nr < 8 && nc >= 0 && nc < 8) {
+            // permite puxar para casas vazias ou para buraco (caso a peça caia)
+            if (( !G.board[nr][nc] || (G.board[nr][nc] && G.board[nr][nc].t === 'hole') )
+                && !(G.ruby?.r === nr && G.ruby?.c === nc)) {
+                candidates.push({ r: nr, c: nc });
+            }
+        }
+    }
+
+    if (candidates.length === 0) {
+        mostrarMensagem('⚡ Nenhuma casa adjacente livre para puxar o inimigo!');
+        return;
+    }
+
+    // escolhe a casa adjacente que resulta no menor deslocamento do inimigo
+    candidates.sort((a, b) => (
+        Math.abs(a.r - target.r) + Math.abs(a.c - target.c)
+    ) - (
+        Math.abs(b.r - target.r) + Math.abs(b.c - target.c)
+    ));
+
+    const dest = candidates[0];
+
+    // anima o arrasto da peça inimiga antes de atualizar o estado
+    try {
+        await animatePieceDrag(target.r, target.c, dest.r, dest.c, target.piece);
+    } catch (e) {
+        // se animação falhar, apenas realiza a mudança sem animação
+    }
+
+    // remove peça da posição antiga
+    G.board[target.r][target.c] = null;
+
+    // se destino é um buraco, a peça morre e é adicionada às capturadas do comprador
+    const destCell = G.board[dest.r][dest.c];
+    if (destCell && destCell.t === 'hole') {
+        // comprador recebe a peça capturada
+        G.captured[comprador] = G.captured[comprador] || [];
+        G.captured[comprador].push(target.piece);
+        mostrarMensagem('◼ Peça inimiga caiu no buraco e foi capturada!', 1800);
+    } else {
+        // coloca a peça normalmente
+        G.board[dest.r][dest.c] = target.piece;
+        mostrarMensagem('⚡ Peça inimiga puxada!', 1800);
+    }
+
+    // consome a vez do comprador
+    await passarVezPorPoder('Caçar');
+}
+
+/**
+ * Anima visualmente a peça sendo arrastada de uma casa para outra.
+ * Retorna uma Promise que resolve ao final da animação.
+ */
+function animatePieceDrag(sr, sc, dr, dc, piece) {
+    return new Promise((resolve) => {
+        const boardEl = document.getElementById('board');
+        if (!boardEl) return resolve();
+
+        const srcEl = boardEl.querySelector(`.square[data-row="${sr}"][data-col="${sc}"]`);
+        const dstEl = boardEl.querySelector(`.square[data-row="${dr}"][data-col="${dc}"]`);
+        if (!srcEl || !dstEl) return resolve();
+
+        const srcRect = srcEl.getBoundingClientRect();
+        const dstRect = dstEl.getBoundingClientRect();
+
+        const overlay = document.createElement('div');
+        overlay.className = 'piece-drag-overlay';
+        overlay.textContent = UNI[piece.co][piece.t] || '';
+        overlay.style.position = 'absolute';
+        overlay.style.left = `${srcRect.left + window.scrollX}px`;
+        overlay.style.top = `${srcRect.top + window.scrollY}px`;
+        overlay.style.width = `${srcRect.width}px`;
+        overlay.style.height = `${srcRect.height}px`;
+        overlay.style.lineHeight = `${srcRect.height}px`;
+        overlay.style.fontSize = window.getComputedStyle(srcEl.querySelector('.piece') || srcEl).fontSize || '28px';
+        overlay.style.textAlign = 'center';
+        overlay.style.pointerEvents = 'none';
+        overlay.style.zIndex = 9999;
+        overlay.style.transition = 'transform 520ms cubic-bezier(.2,.9,.2,1), opacity 200ms';
+        overlay.style.willChange = 'transform, opacity';
+
+        document.body.appendChild(overlay);
+
+        // força reflow
+        void overlay.offsetWidth;
+
+        const dx = dstRect.left - srcRect.left;
+        const dy = dstRect.top - srcRect.top;
+
+        overlay.style.transform = `translate(${dx}px, ${dy}px)`;
+
+        // Ao terminar, remove overlay
+        const cleanup = () => {
+            overlay.style.opacity = '0';
+            setTimeout(() => {
+                if (overlay && overlay.parentNode) overlay.parentNode.removeChild(overlay);
+                resolve();
+            }, 180);
+        };
+
+        overlay.addEventListener('transitionend', function onEnd(e) {
+            if (e.propertyName === 'transform') {
+                overlay.removeEventListener('transitionend', onEnd);
+                cleanup();
+            }
+        });
+    });
 }
 
 // ─── GERENCIAMENTO DE PARTIDAS ──────────────────────────────────────────────
